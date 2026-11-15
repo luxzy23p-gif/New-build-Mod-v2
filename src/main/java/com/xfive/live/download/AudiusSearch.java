@@ -10,7 +10,7 @@ import java.util.Map;
 
 /**
  * Pencarian lagu di Audius (platform musik terbuka dengan API publik untuk aplikasi pihak ketiga).
- * Setiap hasil adalah SATU lagu lengkap dengan sampul. Lagu boleh diputar (stream); disimpan ke Library
+ * Setiap hasil adalah SATU lagu lengkap. Lagu boleh diputar (stream); disimpan ke Library
  * hanya jika pengunggahnya mengizinkan unduhan (is_downloadable).
  */
 public final class AudiusSearch {
@@ -21,8 +21,7 @@ public final class AudiusSearch {
     private AudiusSearch() {
     }
 
-    public record Song(String id, String title, String artist, String artUrl, String artSmallUrl, int seconds,
-                       boolean downloadable) {
+    public record Song(String id, String title, String artist, int seconds, boolean downloadable) {
         /** Alamat audio resmi dari API (mengalihkan ke server konten). */
         public String streamUrl() {
             return host + "/v1/tracks/" + URLEncoder.encode(id, StandardCharsets.UTF_8) + "/stream?app_name=" + APP_NAME;
@@ -82,28 +81,14 @@ public final class AudiusSearch {
                 }
                 Map<String, Object> user = MiniJson.asMap(d.get("user"));
                 String artist = user == null ? null : MiniJson.str(user.get("name"));
-                Map<String, Object> art = MiniJson.asMap(d.get("artwork"));
-                String big = art == null ? null : firstNonBlank(MiniJson.str(art.get("480x480")),
-                        MiniJson.str(art.get("1000x1000")), MiniJson.str(art.get("150x150")));
-                String small = art == null ? null : firstNonBlank(MiniJson.str(art.get("150x150")), big);
                 boolean dl = Boolean.TRUE.equals(d.get("is_downloadable")) && !Boolean.TRUE.equals(d.get("is_download_gated"));
                 out.add(new Song(id, cleanTitle(MiniJson.str(d.get("title"))),
                         artist == null || artist.isBlank() ? "Unknown Artist" : artist.strip(),
-                        big == null ? "" : big, small == null ? "" : small,
                         (int) MiniJson.num(d.get("duration"), 0), dl));
             }
         } catch (IllegalArgumentException e) {
             throw new DownloadException("Search answer was not understood", false);
         }
         return out;
-    }
-
-    private static String firstNonBlank(String... v) {
-        for (String s : v) {
-            if (s != null && !s.isBlank()) {
-                return s;
-            }
-        }
-        return null;
     }
 }

@@ -17,35 +17,6 @@ public final class Http {
     private Http() {
     }
 
-    /** Mengambil isi (misalnya gambar sampul) dengan batas ukuran. */
-    public static byte[] getBytes(String url, int maxBytes) throws IOException {
-        HttpURLConnection c = open(url);
-        try {
-            int code = c.getResponseCode();
-            if (code != 200) {
-                throw new DownloadException("Server answered HTTP " + code, code >= 500 || code == 429);
-            }
-            long len = c.getContentLengthLong();
-            if (len > maxBytes) {
-                throw new DownloadException("Answer too large", false);
-            }
-            try (InputStream in = c.getInputStream()) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                byte[] buf = new byte[8192];
-                int n;
-                while ((n = in.read(buf)) > 0) {
-                    out.write(buf, 0, n);
-                    if (out.size() > maxBytes) {
-                        throw new DownloadException("Answer too large", false);
-                    }
-                }
-                return out.toByteArray();
-            }
-        } finally {
-            c.disconnect();
-        }
-    }
-
     /** Membuka koneksi yang sudah mendapat respons akhir (bukan pengalihan). Pemanggil wajib disconnect(). */
     static HttpURLConnection open(String url) throws IOException {
         String cur = url.strip();

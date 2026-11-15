@@ -108,8 +108,8 @@ Menu samping → **Download**. Perlu internet. Ada kolom isian dan tiga tombol: 
 
 **Cari lagu (cara termudah)**
 1. Ketik judul lagu atau nama artis, ketuk **Go**.
-2. Muncul daftar lagu, tiap baris punya **foto album**, judul, artis, dan lama lagu.
-3. Ketuk **Play** untuk langsung mendengarkan. Foto album juga tampil di pemutar, Dynamic Island, dan menu.
+2. Muncul daftar lagu, tiap baris punya judul, artis, dan lama lagu.
+3. Ketuk **Play** untuk langsung mendengarkan.
 4. Tombol **Get** (simpan ke Library) hanya muncul pada lagu yang **pengunggahnya mengizinkan unduhan**. Lagu tanpa tombol Get hanya bisa diputar.
 
 Sumber pencarian: Audius (platform musik terbuka). Tidak semua lagu ada di sana, jadi sebagian pencarian bisa kosong atau hasilnya bukan lagu yang dicari. Lagu terkenal dari Spotify/YouTube sering tidak ada.

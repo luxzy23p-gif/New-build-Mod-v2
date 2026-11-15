@@ -191,22 +191,17 @@ public final class DynamicIslandHud {
         float ca = alpha * content;
         int dy = Math.round((1f - content) * 5f);
 
-        // sampul: foto album (lagu online) atau kotak membulat berwarna dengan piringan
+        // sampul: kotak membulat berwarna dengan piringan
         int art = u(38, s);
         int ax = x + u(10, s);
         int ay = y + u(10, s) + dy;
-        com.xfive.live.render.Artwork.Tex photo = ca > 0.6f ? com.xfive.live.render.Artwork.forCurrent() : null;
-        if (photo != null) {
-            com.xfive.live.render.Artwork.draw(g, photo, ax, ay, art);
-        } else {
-            Glass.roundRect(g, ax, ay, art, art, u(9, s), Glass.argb(accent, 0.95f * ca), Glass.argb(accent, 0.55f * ca));
-            Glass.border(g, ax, ay, art, art, u(9, s), Glass.argb(0xFFFFFF, 0.5f * ca), Glass.argb(0xFFFFFF, 0.1f * ca));
-            int acx = ax + art / 2;
-            int acy = ay + art / 2;
-            Glass.disc(g, acx, acy, Math.round(art * 0.36f), Glass.argb(0xFFFFFF, 0.30f * ca));
-            Glass.disc(g, acx, acy, Math.round(art * 0.24f), Glass.argb(accent, 0.9f * ca));
-            Glass.disc(g, acx, acy, Math.round(art * 0.10f), Glass.argb(0xFFFFFF, 0.8f * ca));
-        }
+        Glass.roundRect(g, ax, ay, art, art, u(9, s), Glass.argb(accent, 0.95f * ca), Glass.argb(accent, 0.55f * ca));
+        Glass.border(g, ax, ay, art, art, u(9, s), Glass.argb(0xFFFFFF, 0.5f * ca), Glass.argb(0xFFFFFF, 0.1f * ca));
+        int acx = ax + art / 2;
+        int acy = ay + art / 2;
+        Glass.disc(g, acx, acy, Math.round(art * 0.36f), Glass.argb(0xFFFFFF, 0.30f * ca));
+        Glass.disc(g, acx, acy, Math.round(art * 0.24f), Glass.argb(accent, 0.9f * ca));
+        Glass.disc(g, acx, acy, Math.round(art * 0.10f), Glass.argb(0xFFFFFF, 0.8f * ca));
 
         int tx = ax + art + u(10, s);
         int maxW = x + w - u(38, s) - tx;

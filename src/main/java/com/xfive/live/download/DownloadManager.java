@@ -115,10 +115,8 @@ public final class DownloadManager {
         if (!stream && !song.downloadable()) {
             return null;
         }
-        DownloadJob job = enqueue(song.streamUrl(), song.artist() + " - " + song.title(), stream, true, song.artist(),
+        return enqueue(song.streamUrl(), song.artist() + " - " + song.title(), stream, true, song.artist(),
                 song.title());
-        job.artUrl = song.artUrl();
-        return job;
     }
 
     private DownloadJob enqueue(String url, String label, boolean stream, boolean nameFromTitle, String artist,
@@ -225,8 +223,7 @@ public final class DownloadManager {
             return;
         }
         jobs.remove(job);
-        DownloadJob again = enqueue(job.url, job.title, job.stream, job.nameFromTitle, job.artist, job.songTitle);
-        again.artUrl = job.artUrl;
+        enqueue(job.url, job.title, job.stream, job.nameFromTitle, job.artist, job.songTitle);
         version.incrementAndGet();
     }
 

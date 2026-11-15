@@ -61,19 +61,9 @@ public final class XFiveLiveClient implements ClientModInitializer {
                         ? PlaylistManager.parse(job.result)
                         : new PlaylistManager.Track(job.result, job.songTitle,
                                 job.artist.isEmpty() ? "Unknown Artist" : job.artist);
-                if (!job.artUrl.isEmpty()) {
-                    XFiveLiveClient.ONLINE_ART.put(job.result, job.artUrl);
-                }
                 MUSIC.playOnline(t);
             }));
 
-    /** Alamat sampul untuk lagu online (kunci: file di cache). */
-    private static final java.util.Map<Path, String> ONLINE_ART = new java.util.concurrent.ConcurrentHashMap<>();
-
-    /** Alamat gambar sampul lagu, atau null jika lagu ini tidak punya sampul online. */
-    public static String artUrl(PlaylistManager.Track t) {
-        return t == null ? null : ONLINE_ART.get(t.path());
-    }
 
     static final String SOURCE_FILE = "folder-musik.txt";
     private static final String SOURCE_TEMPLATE = String.join("\n",

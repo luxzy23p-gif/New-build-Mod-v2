@@ -133,7 +133,6 @@ final class DownloadTests {
         ok("audius search url encodes", AudiusSearch.searchUrl("a&b=c", 5).contains("query=a%26b%3Dc"));
         String aj = "{\"data\":["
                 + "{\"id\":\"L5WaY\",\"title\":\"y2mate.com - Ari Lasso Cinta\",\"user\":{\"name\":\"Kamilla\"},"
-                + "\"artwork\":{\"150x150\":\"https://x/s.jpg\",\"480x480\":\"https://x/m.jpg\",\"1000x1000\":\"https://x/l.jpg\"},"
                 + "\"duration\":258,\"is_streamable\":true,\"is_downloadable\":false,\"access\":{\"stream\":true,\"download\":true}},"
                 + "{\"id\":\"dl1\",\"title\":\"Free Song\",\"user\":{\"name\":\"Artist\"},\"duration\":65.4,\"is_downloadable\":true,\"artwork\":null},"
                 + "{\"id\":\"gated\",\"title\":\"Gated\",\"is_stream_gated\":true},"
@@ -143,10 +142,8 @@ final class DownloadTests {
         List<AudiusSearch.Song> songs = AudiusSearch.parse(aj);
         ok("audius keeps only streamable songs", songs.size() == 2 && songs.get(0).id().equals("L5WaY") && songs.get(1).id().equals("dl1"));
         ok("audius fields", songs.get(0).title().equals("Ari Lasso Cinta") && songs.get(0).artist().equals("Kamilla")
-                && songs.get(0).artUrl().equals("https://x/m.jpg") && songs.get(0).artSmallUrl().equals("https://x/s.jpg")
                 && songs.get(0).seconds() == 258 && "4:18".equals(songs.get(0).duration()) && !songs.get(0).downloadable());
-        ok("audius downloadable + fallbacks", songs.get(1).downloadable() && songs.get(1).artUrl().isEmpty()
-                && songs.get(1).seconds() == 65 && "1:05".equals(songs.get(1).duration()));
+        ok("audius downloadable + fallbacks", songs.get(1).downloadable() && songs.get(1).seconds() == 65 && "1:05".equals(songs.get(1).duration()));
         ok("audius stream url", songs.get(0).streamUrl().equals("https://api.audius.co/v1/tracks/L5WaY/stream?app_name=XFiveLive"));
         ok("audius empty list", AudiusSearch.parse("{\"data\":[]}").isEmpty());
         boolean b1 = false;
@@ -368,15 +365,14 @@ final class DownloadTests {
             DownloadManager dm3 = new DownloadManager(() -> dir, () -> cache, 1_000_000, 2, 1, 50, savedHere::add, ready::add);
             try {
                 AudiusSearch.host = base;
-                AudiusSearch.Song song = new AudiusSearch.Song("ok", "Nice Song", "Cool Artist", "https://x/m.jpg", "https://x/s.jpg", 200, true);
+                AudiusSearch.Song song = new AudiusSearch.Song("ok", "Nice Song", "Cool Artist", 200, true);
                 DownloadJob pj = dm3.enqueueSong(song, true);
                 waitFor(pj, 5000);
                 Thread.sleep(100);
                 ok("play: done + callback", pj.state == DownloadJob.State.DONE && ready.contains(pj) && savedHere.isEmpty());
                 ok("play: file is in cache, not library", pj.result != null && pj.result.getParent().equals(cache)
                         && pj.result.getFileName().toString().equals("Cool Artist - Nice Song.mp3"));
-                ok("play: metadata carried", "Cool Artist".equals(pj.artist) && "Nice Song".equals(pj.songTitle)
-                        && "https://x/m.jpg".equals(pj.artUrl));
+                ok("play: metadata carried", "Cool Artist".equals(pj.artist) && "Nice Song".equals(pj.songTitle));
                 int hitsBefore = ready.size();
                 DownloadJob pj2 = dm3.enqueueSong(song, true);
                 ok("play again uses cache instantly", pj2.state == DownloadJob.State.DONE && ready.size() == hitsBefore + 1
@@ -394,7 +390,7 @@ final class DownloadTests {
                         && gj.result.getParent().equals(dir) && gj.result.getFileName().toString().startsWith("Cool Artist - Nice Song")
                         && savedHere.contains(gj));
                 ok("get: only the clicked song", Files.list(dir).filter(p -> p.getFileName().toString().startsWith("Cool Artist")).count() == 1);
-                AudiusSearch.Song locked = new AudiusSearch.Song("ok", "Locked", "Someone", "", "", 100, false);
+                AudiusSearch.Song locked = new AudiusSearch.Song("ok", "Locked", "Someone", 100, false);
                 ok("get: refused when artist does not allow downloads", dm3.enqueueSong(locked, false) == null);
             } finally {
                 AudiusSearch.host = "https://api.audius.co";

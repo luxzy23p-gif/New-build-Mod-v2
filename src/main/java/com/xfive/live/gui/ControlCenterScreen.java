@@ -11,7 +11,6 @@ import com.xfive.live.download.FileNames;
 import com.xfive.live.download.AudiusSearch;
 import com.xfive.live.config.DeviceInfo;
 import com.xfive.live.config.SpecSheet;
-import com.xfive.live.render.Artwork;
 import com.xfive.live.hud.DynamicIslandHud;
 import com.xfive.live.music.PlaylistManager;
 import com.xfive.live.render.Glass;
@@ -722,19 +721,14 @@ public final class ControlCenterScreen extends Screen {
         int cx = n[0] + (n[2] - cover) / 2;
         int cy = n[1] + 4;
         int color = t == null ? 0x4A4D55 : coverColor(t);
-        Artwork.Tex art = Artwork.forCurrent();
-        if (art != null) {
-            Artwork.draw(g, art, cx, cy, cover);
-        } else {
-            Glass.roundRect(g, cx, cy, cover, cover, 6, a(color, 0.92f));
-            Glass.disc(g, cx + cover / 2, cy + cover / 2, Math.max(6, cover / 4), a(0x000000, 0.22f));
-            String ini = t == null ? "X5" : initial(t);
-            g.pose().pushMatrix();
-            g.pose().translate((float) (cx + cover / 2), (float) (cy + cover / 2));
-            g.pose().scale(2f, 2f);
-            GlassPanelRenderer.text(g, font, ini, -GlassPanelRenderer.width(font, ini) / 2, -4, 0xFFFFFF);
-            g.pose().popMatrix();
-        }
+        Glass.roundRect(g, cx, cy, cover, cover, 6, a(color, 0.92f));
+        Glass.disc(g, cx + cover / 2, cy + cover / 2, Math.max(6, cover / 4), a(0x000000, 0.22f));
+        String ini = t == null ? "X5" : initial(t);
+        g.pose().pushMatrix();
+        g.pose().translate((float) (cx + cover / 2), (float) (cy + cover / 2));
+        g.pose().scale(2f, 2f);
+        GlassPanelRenderer.text(g, font, ini, -GlassPanelRenderer.width(font, ini) / 2, -4, 0xFFFFFF);
+        g.pose().popMatrix();
 
         int tx = n[0] + 6;
         int maxW = n[2] - 12;
@@ -872,12 +866,9 @@ public final class ControlCenterScreen extends Screen {
                 int[] gb = trackGetBtn(r, ax, ay);
                 int tl = ax + 6 + 24 + 6;
                 int right = so.downloadable() ? pb[0] : playOnlyBtn(r, ax, ay)[0];
-                Artwork.Tex th = Artwork.get(so.artSmallUrl());
-                if (th != null) {
-                    Artwork.draw(g, th, ax + 6, ay + 4, 24);
-                } else {
-                    Glass.roundRect(g, ax + 6, ay + 4, 24, 24, 4, a(accent, 0.25f));
-                }
+                Glass.roundRect(g, ax + 6, ay + 4, 24, 24, 4, a(accent, 0.25f));
+                String ini = so.title().isEmpty() ? "?" : so.title().substring(0, 1).toUpperCase(Locale.ROOT);
+                GlassPanelRenderer.text(g, font, ini, ax + 6 + (24 - GlassPanelRenderer.width(font, ini)) / 2, ay + 4 + 8, 0xFFFFFF);
                 String dur = so.duration();
                 GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.label, right - tl - 6), tl, ay + 6, 0xFFFFFF);
                 GlassPanelRenderer.text(g, font,
@@ -1021,15 +1012,10 @@ public final class ControlCenterScreen extends Screen {
         // kiri: sampul kecil + judul
         int cover = 26;
         int cyTop = by + 11;
-        Artwork.Tex barArt = Artwork.forCurrent();
-        if (barArt != null) {
-            Artwork.draw(g, barArt, px + 10, cyTop, cover);
-        } else {
-            Glass.roundRect(g, px + 10, cyTop, cover, cover, 5, a(t == null ? 0x4A4D55 : coverColor(t), 0.92f));
-            String ini = t == null ? "X" : initial(t);
-            GlassPanelRenderer.text(g, font, ini, px + 10 + (cover - GlassPanelRenderer.width(font, ini)) / 2,
-                    cyTop + 9, 0xFFFFFF);
-        }
+        Glass.roundRect(g, px + 10, cyTop, cover, cover, 5, a(t == null ? 0x4A4D55 : coverColor(t), 0.92f));
+        String ini = t == null ? "X" : initial(t);
+        GlassPanelRenderer.text(g, font, ini, px + 10 + (cover - GlassPanelRenderer.width(font, ini)) / 2,
+                cyTop + 9, 0xFFFFFF);
         int tx = px + 10 + cover + 6;
         int maxW = Math.max(30, r[0][0] - 8 - tx);
         GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, t == null ? "Nothing playing" : t.title(), maxW),
@@ -1667,7 +1653,6 @@ public final class ControlCenterScreen extends Screen {
             case SETTINGS -> {
                 out.add(toggle("Enable XFiveLive", () -> c.enableMod, () -> c.enableMod = !c.enableMod));
                 out.add(toggle("Auto resume music", () -> c.autoResume, () -> c.autoResume = !c.autoResume));
-                out.add(toggle("Show album artwork", () -> c.showArtwork, () -> c.showArtwork = !c.showArtwork));
                 out.add(toggle("Specs: read my device", () -> c.specAuto, () -> c.specAuto = !c.specAuto));
                 out.add(toggle("Auto-download lyrics", () -> c.autoLyrics, () -> c.autoLyrics = !c.autoLyrics));
                 out.add(action("Rescan music folder", XFiveLiveClient::refreshMusic));
