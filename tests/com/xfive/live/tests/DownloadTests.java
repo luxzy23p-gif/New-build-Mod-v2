@@ -3,6 +3,7 @@ package com.xfive.live.tests;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import com.xfive.live.download.AudioSniffer;
+import com.xfive.live.download.CacheCleaner;
 import com.xfive.live.download.DownloadJob;
 import com.xfive.live.download.DownloadManager;
 import com.xfive.live.download.FileNames;
@@ -181,6 +182,20 @@ final class DownloadTests {
         many.append("]}");
         ok("pick capped", OnlineSearch.pickTracks("id", many.toString(), 1L << 30).size() == OnlineSearch.MAX_TRACKS);
         ok("pick none", OnlineSearch.pickTracks("id", "{\"files\":[{\"name\":\"a.jpg\"}]}", 1L << 30).isEmpty());
+
+        List<OnlineSearch.Track> meta = OnlineSearch.pickTracks("id", "{\"files\":[{\"name\":\"01 - Hello_World.mp3\",\"size\":\"900000\"},"
+                + "{\"name\":\"x/02. Second Song.mp3\",\"size\":\"900000\",\"title\":\"Real Title\",\"artist\":\"Real Artist\"}]}", 1L << 30);
+        ok("track title from file name", "Hello World".equals(meta.get(0).displayTitle()));
+        ok("track title strips number + folder", meta.get(1).displayTitle().equals("Real Title"));
+        ok("track artist from metadata", "Real Artist".equals(meta.get(1).artist()) && meta.get(0).artist() == null);
+        OnlineSearch.Track nt = new OnlineSearch.Track("d/03 Song Name.ogg", "u", 1, "Ogg", null, null);
+        ok("track title strips number", "Song Name".equals(nt.displayTitle()));
+
+        com.xfive.live.lyrics.LyricStyle.class.getName();
+        ok("karaoke chars", com.xfive.live.lyrics.LyricStyle.karaokeChars(10, 0.5f) == 5f
+                && com.xfive.live.lyrics.LyricStyle.karaokeChars(10, 2f) == 10f
+                && com.xfive.live.lyrics.LyricStyle.karaokeChars(10, -1f) == 0f
+                && com.xfive.live.lyrics.LyricStyle.karaokeChars(-3, 0.5f) == 0f);
     }
 
     // ---------------------------------------------------------------
@@ -375,6 +390,59 @@ final class DownloadTests {
             } finally {
                 dm2.shutdown();
             }
+
+            // ---- Play online (cache) dan satu lagu ----
+            Path cache = work.resolve("cache");
+            List<DownloadJob> ready = new CopyOnWriteArrayList<>();
+            List<DownloadJob> savedHere = new CopyOnWriteArrayList<>();
+            DownloadManager dm3 = new DownloadManager(() -> dir, () -> cache, 1_000_000, 2, 1, 50, savedHere::add, ready::add);
+            try {
+                OnlineSearch.Track tr = new OnlineSearch.Track("t.mp3", base + "/ok.mp3", 20_000, "VBR MP3", "Nice Song", null);
+                DownloadJob pj = dm3.enqueueTrack(tr, "Cool Artist", true);
+                waitFor(pj, 5000);
+                Thread.sleep(100);
+                ok("play: done + callback", pj.state == DownloadJob.State.DONE && ready.contains(pj) && savedHere.isEmpty());
+                ok("play: file is in cache, not library", pj.result != null && pj.result.getParent().equals(cache)
+                        && pj.result.getFileName().toString().equals("Cool Artist - Nice Song.mp3"));
+                ok("play: metadata carried", "Cool Artist".equals(pj.artist) && "Nice Song".equals(pj.songTitle));
+                int hitsBefore = ready.size();
+                DownloadJob pj2 = dm3.enqueueTrack(tr, "Cool Artist", true);
+                ok("play again uses cache instantly", pj2.state == DownloadJob.State.DONE && ready.size() == hitsBefore + 1
+                        && pj2.result.equals(pj.result));
+                long cacheFiles;
+                try (var st = Files.list(cache)) {
+                    cacheFiles = st.count();
+                }
+                ok("play again does not duplicate file", cacheFiles == 1);
+
+                DownloadJob gj = dm3.enqueueTrack(tr, "Cool Artist", false);
+                waitFor(gj, 5000);
+                Thread.sleep(100);
+                ok("get: saved to library with artist - title name", gj.state == DownloadJob.State.DONE
+                        && gj.result.getParent().equals(dir) && gj.result.getFileName().toString().startsWith("Cool Artist - Nice Song")
+                        && savedHere.contains(gj));
+                ok("get: only the clicked song", Files.list(dir).filter(p -> p.getFileName().toString().startsWith("Cool Artist")).count() == 1);
+            } finally {
+                dm3.shutdown();
+            }
+
+            Path cdir = work.resolve("cleaner");
+            Files.createDirectories(cdir);
+            for (int i = 0; i < 4; i++) {
+                Path f = cdir.resolve("f" + i + ".mp3");
+                Files.write(f, new byte[100_000]);
+                Files.setLastModifiedTime(f, java.nio.file.attribute.FileTime.fromMillis(1_000_000L + i * 1000L));
+            }
+            Files.write(cdir.resolve("busy.mp3.part"), new byte[100_000]);
+            CacheCleaner.trim(cdir, 250_000, cdir.resolve("f0.mp3"));
+            ok("cache trim deletes oldest, keeps protected + .part",
+                    Files.exists(cdir.resolve("f0.mp3")) && !Files.exists(cdir.resolve("f1.mp3"))
+                            && !Files.exists(cdir.resolve("f2.mp3")) && Files.exists(cdir.resolve("f3.mp3"))
+                            && Files.exists(cdir.resolve("busy.mp3.part")));
+            CacheCleaner.purge(cdir);
+            ok("cache purge removes everything", Files.list(cdir).count() == 0);
+            CacheCleaner.purge(work.resolve("does-not-exist"));
+            CacheCleaner.trim(null, 0, null);
 
             DownloadJob bad = dm.enqueueUrl("ftp://x/y.mp3", null);
             waitFor(bad, 5000);

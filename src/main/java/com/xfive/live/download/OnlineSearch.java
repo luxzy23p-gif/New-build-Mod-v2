@@ -18,7 +18,20 @@ public final class OnlineSearch {
     public record Result(String identifier, String title, String creator, long downloads) {
     }
 
-    public record Track(String name, String url, long size, String format) {
+    public record Track(String name, String url, long size, String format, String title, String artist) {
+        /** Judul untuk ditampilkan: judul dari metadata, atau nama file tanpa ekstensi dan nomor urut. */
+        public String displayTitle() {
+            if (title != null && !title.isBlank()) {
+                return title.strip();
+            }
+            String n = name.substring(name.lastIndexOf('/') + 1);
+            String ext = FileNames.extensionOf(n);
+            if (!ext.isEmpty()) {
+                n = n.substring(0, n.length() - ext.length() - 1);
+            }
+            n = n.replace('_', ' ').replaceAll("^(\\d{1,2}\\s*[.\\-_)]+\\s*|0\\d\\s+)", "").replaceAll("\\s+", " ").strip();
+            return n.isEmpty() ? name : n;
+        }
     }
 
     /** Membuang karakter khusus pencarian Lucene agar permintaan tidak error. */
@@ -117,7 +130,8 @@ public final class OnlineSearch {
                 if (size >= 0 && (size < MIN_TRACK_BYTES || size > maxBytes)) {
                     continue;
                 }
-                Track t = new Track(name, downloadUrl(identifier, name), size, MiniJson.str(f.get("format")));
+                Track t = new Track(name, downloadUrl(identifier, name), size, MiniJson.str(f.get("format")),
+                        MiniJson.str(f.get("title")), MiniJson.str(f.get("artist")));
                 switch (ext) {
                     case "mp3": mp3.add(t); break;
                     case "ogg": ogg.add(t); break;

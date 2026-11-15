@@ -239,13 +239,14 @@ public final class XFiveTests {
         XFiveConfig a = new XFiveConfig(dir);
         a.lyricsAnim = "pop";
         a.lyricsKaraoke = false;
+        a.karaokeMode = true;
         a.lyricsPreview = false;
         a.lyricsOffsetMs = -250;
         a.save();
         XFiveConfig b = new XFiveConfig(dir);
         b.load();
         check("config lyric anim saved", b.lyricsAnim.equals("pop") && !b.lyricsKaraoke && !b.lyricsPreview
-                && b.lyricsOffsetMs == -250);
+                && b.lyricsOffsetMs == -250 && b.karaokeMode && !new XFiveConfig(dir.resolve("nope")).karaokeMode);
         Files.writeString(dir.resolve(XFiveConfig.FILE_NAME), "lyrics.anim=zzz\nlyrics.offsetMs=99999\n");
         XFiveConfig c = new XFiveConfig(dir);
         c.load();

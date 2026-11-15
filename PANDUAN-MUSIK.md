@@ -102,28 +102,41 @@ Catatan: cara paling mudah dan paling pasti adalah menyalin lagu langsung ke fol
 
 Di menu samping ada halaman **Specs**: spesifikasi HP (Infinix GT30 Pro, Dimensity 8350 Ultimate, RAM 8 GB / ROM 256 GB, GPU Mali, XOS 16) dengan animasi: HP bergaris tergambar, chip membal, judul berganti huruf acak, lalu baris spesifikasi diketik satu per satu. Ketuk halamannya untuk memutar ulang animasi.
 
-## Halaman Download (unduh lagu online)
+## Halaman Download (unduh / putar lagu online)
 
-Menu samping → **Download**. Perlu internet.
+Menu samping → **Download**. Perlu internet. Ada tiga tombol: **Paste**, **Play**, **Go**.
 
 **Cara 1 - tempel link langsung**
-1. Salin link file lagu (harus berakhiran .mp3, .m4a, .ogg atau .wav, atau link yang langsung memberi file lagu).
-2. Di halaman Download ketuk **Paste** (atau ketik link), lalu ketuk **Go**.
-3. Muncul baris dengan bar progres. Ketuk baris itu untuk **Cancel** (saat jalan), **Retry** (kalau gagal) atau **Remove** (kalau selesai).
+1. Salin link file lagu (berakhiran .mp3, .m4a, .ogg atau .wav, atau link yang langsung memberi file lagu).
+2. Ketuk **Paste** (atau ketik link).
+3. Ketuk **Go** untuk **menyimpan** ke Library, atau **Play** untuk **langsung mendengarkan** tanpa menyimpan.
 
 **Cara 2 - cari musik gratis**
 1. Ketik nama lagu/artis (bukan link), ketuk **Go**.
-2. Hasil dari Internet Archive (musik gratis/domain publik/rilis bebas) muncul. Ketuk satu hasil untuk mengunduh. Kalau satu hasil berisi banyak lagu (album), maksimal 12 lagu diambil.
+2. Hasil dari Internet Archive muncul. Ketuk **Open** pada satu hasil untuk melihat daftar lagunya.
+3. Di daftar lagu, tiap lagu punya dua tombol: **Play** (dengar langsung) dan **Get** (simpan). Hanya lagu yang Anda ketuk yang diproses, tidak satu album sekaligus.
+4. Tombol **< Back to results** kembali ke hasil pencarian.
 
-**Setelah selesai**
-- Lagu otomatis masuk **folder musik** dan muncul di **Library** (tanpa restart). Unduhan tetap jalan di latar belakang walau menu ditutup.
+**Play online**
+- Lagu diunduh dulu ke folder sementara `xfive-cache` (biasanya beberapa detik), lalu otomatis diputar. Lagu itu **tidak masuk Library** dan folder sementara dikosongkan setiap game dibuka. Ini bukan streaming sungguhan: lagu harus selesai dimuat dulu.
+- Next/Previous setelah itu kembali ke lagu di Library. Untuk menambah ke Favorites, simpan dulu dengan **Get**.
+
+**Setelah Get selesai**
+- Lagu otomatis masuk folder musik dan muncul di **Library** tanpa restart. Unduhan jalan di latar belakang walau menu ditutup.
 - Lirik diunduh otomatis saat lagunya diputar (kalau "Auto-download lyrics" aktif di Settings).
 
 **Pengaman**
-- File ditulis dulu sebagai `.part`, baru diganti nama setelah lengkap. Kalau gagal/dibatalkan, file sementara dihapus.
+- File ditulis dulu sebagai `.part`, baru diganti nama setelah lengkap. Gagal/dibatalkan = file sementara dihapus.
 - Lagu yang sudah ada tidak pernah ditimpa (nama jadi `lagu (2).mp3`).
-- Halaman web yang menyamar jadi file lagu ditolak. Batas ukuran 200 MB per file. Coba ulang otomatis 2x kalau koneksi putus.
-- Link YouTube, Spotify, TikTok, SoundCloud dan sejenisnya tidak bisa diunduh (dilindungi) - mod memberi tahu kalau Anda mencobanya.
+- Halaman web yang menyamar jadi file lagu ditolak. Batas 200 MB per file. Koneksi putus dicoba ulang otomatis 2x.
+- Link YouTube, Spotify, TikTok, SoundCloud dan sejenisnya tidak bisa (dilindungi); mod memberi tahu kalau dicoba.
 - Unduh hanya lagu yang boleh Anda simpan (gratis/berlisensi/milik sendiri).
 
-Catatan jujur: fitur ini sudah dites dengan server palsu di komputer, tapi belum dicoba langsung di HP.
+## Mode Karaoke (lirik di bawah Dynamic Bar)
+
+Menu → **Custom HUD** → nyalakan **Karaoke mode (under bar)**.
+- Saat lagu berlirik diputar, panel lirik muncul **tepat di bawah Dynamic Bar** dan ikut naik-turun mengikuti animasi bar.
+- Baris yang sedang dinyanyikan lebih besar dan menyala **huruf demi huruf** mengikuti lagu, dengan garis progres tipis di bawahnya dan baris berikutnya di bawah itu. Saat jeda instrumental muncul tiga titik.
+- Mode ini menggantikan HUD lirik biasa selagi aktif. Warna sorot mengikuti pengaturan warna sorot lirik. Lirik harus tersedia (file .lrc atau terunduh otomatis).
+
+Catatan jujur: semua ini sudah dites bagian logikanya di komputer dan terbukti terkompilasi di GitHub, tapi tampilannya belum dicoba langsung di HP.

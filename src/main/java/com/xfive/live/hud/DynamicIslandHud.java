@@ -34,6 +34,8 @@ public final class DynamicIslandHud {
     private static long hideAt = 0L;
     private static float t = 0f;          // kemajuan buka/tutup 0..1 (linear terhadap waktu)
     private static long lastRenderNs = 0L;
+    private static long lastBottomNs = 0L;
+    private static int lastBottom = -1;      // tepi bawah pop-up yang sedang tampil (-1 = tidak tampil)
 
     private DynamicIslandHud() {
     }
@@ -46,6 +48,17 @@ public final class DynamicIslandHud {
             return GlassPanelRenderer.accent(c.theme);
         }
         return COLORS[i];
+    }
+
+    /**
+     * Tepi bawah Dynamic Island yang sedang terlihat (ikut animasi buka/tutup), atau -1 jika sedang tidak tampil.
+     * Dipakai lirik karaoke agar menempel tepat di bawah bar.
+     */
+    public static int visibleBottom() {
+        if (System.nanoTime() - lastBottomNs > 250_000_000L) {
+            return -1; // pop-up tidak digambar belakangan ini
+        }
+        return lastBottom;
     }
 
     /** Kotak penuh Dynamic Island: {x, y, lebar, tinggi}. Nilai posisi -1 berarti tengah atas layar. */
@@ -106,6 +119,7 @@ public final class DynamicIslandHud {
             t = Math.max(0f, t - dt / CLOSE_SECONDS);
         }
         if (t <= 0.001f) {
+            lastBottom = -1;
             return;
         }
 
@@ -130,7 +144,10 @@ public final class DynamicIslandHud {
         }
 
         int[] b = box();
-        if (b[2] <= 0 || b[3] <= 0) return;
+        if (b[2] <= 0 || b[3] <= 0) {
+            lastBottom = -1;
+            return;
+        }
         int capW = Math.max(44, Math.min(76, b[2] / 2));
         int capH = Math.min(CAP_H, b[3]);
         int w = Math.max(capW, Math.round(capW + (b[2] - capW) * ew));
@@ -140,6 +157,9 @@ public final class DynamicIslandHud {
         // Offset mengikuti kurva tinggi agar gerakan tetap kontinu dan tidak meloncat.
         int y = b[1] - (opening ? 0 : Math.round((1f - eh) * 12f));
         float alpha = clamp01(t / 0.12f) * c.hudOpacity * Math.max(0.35f, c.customTransparency);
+
+        lastBottom = y + h;
+        lastBottomNs = System.nanoTime();
 
         String title;
         String sub;

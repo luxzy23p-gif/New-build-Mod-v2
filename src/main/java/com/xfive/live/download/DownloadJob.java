@@ -4,15 +4,20 @@ import java.nio.file.Path;
 
 /** Satu unduhan (atau satu permintaan "ambil semua lagu dari hasil pencarian"). Field dibaca dari thread game. */
 public final class DownloadJob {
-    public enum State { QUEUED, RESOLVING, RUNNING, DONE, FAILED, CANCELLED }
+    public enum State { QUEUED, RUNNING, DONE, FAILED, CANCELLED }
 
     public final int id;
-    /** Alamat file; null untuk job yang masih harus mencari file di Internet Archive. */
+    /** Alamat file. */
     public final String url;
-    /** Identifier Internet Archive (hanya untuk job RESOLVING). */
-    public final String identifier;
     /** Nama tampilan sementara (judul hasil pencarian atau nama dari link). */
     public final String title;
+
+    /** Putar langsung (disimpan di folder cache, bukan di Library). */
+    public volatile boolean stream;
+    /** Nama file diambil dari judul ("Artis - Judul"), bukan dari alamat file. */
+    public volatile boolean nameFromTitle;
+    public volatile String artist = "";
+    public volatile String songTitle = "";
 
     public volatile State state = State.QUEUED;
     public volatile String message = "Waiting...";
@@ -22,10 +27,9 @@ public final class DownloadJob {
     public volatile Path result;
     volatile boolean cancel;
 
-    DownloadJob(int id, String url, String identifier, String title) {
+    DownloadJob(int id, String url, String title) {
         this.id = id;
         this.url = url;
-        this.identifier = identifier;
         this.title = title == null || title.isBlank() ? "Song" : title;
     }
 

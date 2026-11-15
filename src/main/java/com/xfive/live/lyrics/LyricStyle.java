@@ -70,6 +70,14 @@ public final class LyricStyle {
         return Math.max(0f, Math.min(1f, sinceStartMs / (durationMs * 0.85f)));
     }
 
+    /**
+     * Posisi sorot karaoke dalam satuan huruf (pecahan): bagian bulat = huruf yang sudah penuh menyala,
+     * bagian pecahan = seberapa terang huruf berikutnya. Dipakai agar sorot bergerak halus.
+     */
+    public static float karaokeChars(int length, float fraction) {
+        return Math.max(0f, Math.min(1f, fraction)) * Math.max(0, length);
+    }
+
     /** Jumlah huruf yang sudah diketik, selesai di 60% durasi baris (maksimal 1,4 detik). */
     public static int typedChars(int length, long sinceStartMs, long durationMs) {
         long total = Math.max(250, Math.min(1400, (long) (durationMs * 0.6)));

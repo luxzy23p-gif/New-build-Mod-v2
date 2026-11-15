@@ -156,7 +156,8 @@ public final class Downloader {
                     throw new DownloadException("Not a supported song (mp3, m4a, ogg, wav)", false);
                 }
 
-                String raw = FileNames.fromContentDisposition(c.getHeaderField("Content-Disposition"));
+                String raw = job.nameFromTitle ? job.title
+                        : FileNames.fromContentDisposition(c.getHeaderField("Content-Disposition"));
                 if (raw == null) {
                     raw = FileNames.fromUrl(c.getURL().toString());
                 }

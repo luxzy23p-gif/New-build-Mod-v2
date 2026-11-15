@@ -15,6 +15,8 @@ Tes ada di `tests/com/xfive/live/tests/XFiveTests.java` dan hanya memakai kode t
 
 - Halaman **Download** di Control Center: tempel link langsung (.mp3/.m4a/.ogg/.wav) atau cari musik gratis di Internet Archive, unduh dengan bar progres, batal/coba lagi, lalu otomatis masuk Library.
 - Kode murni (tanpa Minecraft) ada di `src/main/java/com/xfive/live/download/` dan dites di `tests/.../DownloadTests.java` memakai server HTTP palsu: sukses, redirect, loop redirect, halaman HTML, file palsu, 404, 503 lalu berhasil, putus di tengah, batas ukuran, batal, folder tidak bisa ditulis.
+- Hasil pencarian dibuka dulu menjadi daftar lagu; **Get** menyimpan satu lagu ke Library, **Play** memutar satu lagu dari folder cache sementara (bukan streaming sungguhan, lagu dimuat penuh dulu).
+- **Mode Karaoke** (Custom HUD): panel lirik besar dengan sorot per huruf tepat di bawah Dynamic Bar.
 - YouTube/Spotify sengaja tidak didukung (dilindungi). Halaman menu Download baru terkompilasi di CI; belum dicoba di HP.
 
 ## UI Control Center 1.1.0

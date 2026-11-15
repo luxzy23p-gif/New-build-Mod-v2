@@ -24,6 +24,8 @@ public final class MusicManager {
     private Path folder;
     private String status = "Belum ada musik";
     private PlaylistManager.Track loadedTrack;
+    /** Lagu yang diputar online (file sementara di cache). Null = memutar dari Library. */
+    private volatile PlaylistManager.Track online;
     private boolean error = false;
     private int repeatMode = REPEAT_ALL;
     private boolean shuffle = false;
@@ -61,7 +63,7 @@ public final class MusicManager {
 
     /** Memuat dan memutar lagu aktif. Mengembalikan false jika gagal (lihat status()). */
     public boolean playCurrent() {
-        PlaylistManager.Track track = playlist.current();
+        PlaylistManager.Track track = online != null ? online : playlist.current();
         if (track == null) {
             status = "Playlist kosong";
             return false;
@@ -81,6 +83,29 @@ public final class MusicManager {
         error = false;
         status = "Memutar";
         return true;
+    }
+
+    /** Memutar lagu dari file sementara (Play online). Tidak masuk Library; Next/Prev kembali ke Library. */
+    public void playOnline(PlaylistManager.Track track) {
+        online = track;
+        requestLoad(track);
+    }
+
+    /** True jika lagu yang aktif berasal dari Play online. */
+    public boolean isOnline() {
+        return online != null;
+    }
+
+    public boolean isOnlineTrack(PlaylistManager.Track t) {
+        return t != null && t == online;
+    }
+
+    /** Memutar lagu Library nomor i (menggantikan lagu online jika ada). */
+    public void playIndex(int i) {
+        online = null;
+        if (playlist.select(i)) {
+            playCurrent();
+        }
     }
 
     /** Memperbarui daftar lagu TANPA menghentikan lagu yang sedang diputar. */
@@ -127,6 +152,17 @@ public final class MusicManager {
     }
 
     public void next() {
+        if (online != null) {
+            online = null;
+            if (playlist.size() > 0) {
+                playCurrent();
+            } else {
+                player.stop();
+                loadedTrack = null;
+                status = "Selesai";
+            }
+            return;
+        }
         int size = playlist.size();
         if (shuffle && size > 1) {
             int current = playlist.currentIndex();
@@ -142,6 +178,10 @@ public final class MusicManager {
     }
 
     public void previous() {
+        if (online != null) {
+            player.seekMs(0L);
+            return;
+        }
         if (player.positionMs() > RESTART_THRESHOLD_MS) {
             player.seekMs(0L);
         } else {
@@ -178,6 +218,11 @@ public final class MusicManager {
         if (repeatMode == REPEAT_ONE && loadedTrack != null) {
             player.stop();
             playCurrent();
+            return;
+        }
+        if (online != null) {
+            player.stop();
+            status = "Selesai";
             return;
         }
         boolean lastTrack = playlist.currentIndex() >= playlist.size() - 1;
@@ -278,7 +323,8 @@ public final class MusicManager {
     }
 
     public PlaylistManager.Track currentTrack() {
-        return playlist.current();
+        PlaylistManager.Track o = online;
+        return o != null ? o : playlist.current();
     }
 
     public long positionMs() {

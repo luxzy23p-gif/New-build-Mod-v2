@@ -236,7 +236,7 @@ public final class ControlCenterScreen extends Screen {
     /** Baris isian link/pencarian di halaman Download. */
     private int[] downloadPill() {
         int x = rowsX();
-        return new int[] {x, contentTop() + 4, Math.max(60, rowsR() - x - 40 - 32 - 8), 18};
+        return new int[] {x, contentTop() + 4, Math.max(60, rowsR() - x - 40 - 34 - 28 - 12), 18};
     }
 
     private int[] pasteRect() {
@@ -244,9 +244,14 @@ public final class ControlCenterScreen extends Screen {
         return new int[] {p[0] + p[2] + 4, p[1], 40, 18};
     }
 
-    private int[] goRect() {
+    private int[] playRect() {
         int[] p = pasteRect();
-        return new int[] {p[0] + p[2] + 4, p[1], 32, 18};
+        return new int[] {p[0] + p[2] + 4, p[1], 34, 18};
+    }
+
+    private int[] goRect() {
+        int[] p = playRect();
+        return new int[] {p[0] + p[2] + 4, p[1], 28, 18};
     }
 
     /** Kotak isian path di sub-header pustaka: {x, y, w, h}. */
@@ -467,7 +472,9 @@ public final class ControlCenterScreen extends Screen {
                 Glass.roundRect(g, pill[0], pill[1], pill[2], pill[3], 6, a(0xFFFFFF, 0.07f));
                 int[] pr = pasteRect();
                 int[] gr = goRect();
+                int[] ply = playRect();
                 drawPill(g, font, pr, "Paste", accent, in(mouseX, mouseY, pr), pressedKey.equals("paste"));
+                drawPill(g, font, ply, "Play", accent, in(mouseX, mouseY, ply), pressedKey.equals("dlplay"));
                 drawPill(g, font, gr, "Go", accent, in(mouseX, mouseY, gr), pressedKey.equals("go"));
             }
             drawRows(g, font, accent, mouseX, mouseY, !anim);
@@ -574,6 +581,10 @@ public final class ControlCenterScreen extends Screen {
     }
 
     private static void toggleFavorite(PlaylistManager.Track t) {
+        if (XFiveLiveClient.MUSIC.isOnlineTrack(t)) {
+            XFiveLiveClient.MUSIC.setStatus("Download this song (Get) to add it to Favorites.");
+            return;
+        }
         String key = t.path().toAbsolutePath().toString();
         if (!XFiveLiveClient.CONFIG.favoriteMusic.add(key)) {
             XFiveLiveClient.CONFIG.favoriteMusic.remove(key);
@@ -847,14 +858,30 @@ public final class ControlCenterScreen extends Screen {
                 }
             }
             case Row.ITEM -> {
-                int gw = 34;
+                int gw = 38;
                 GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.label, r.w - gw - 24), ax + 8, ay + 5,
                         0xFFFFFF);
                 GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.sub, r.w - gw - 24), ax + 8, ay + 16,
                         GlassPanelRenderer.MUTED);
                 Glass.roundRect(g, ax + r.w - gw - 6, ay + 5, gw, r.h - 10, 5, a(accent, hov ? 0.45f : 0.30f));
-                int tw = GlassPanelRenderer.width(font, "Get");
-                GlassPanelRenderer.text(g, font, "Get", ax + r.w - gw - 6 + (gw - tw) / 2, ay + (r.h - 9) / 2, 0xFFFFFF);
+                int tw = GlassPanelRenderer.width(font, "Open");
+                GlassPanelRenderer.text(g, font, "Open", ax + r.w - gw - 6 + (gw - tw) / 2, ay + (r.h - 9) / 2, 0xFFFFFF);
+            }
+            case Row.TRACK -> {
+                int[] pb = trackPlayBtn(r, ax, ay);
+                int[] gb = trackGetBtn(r, ax, ay);
+                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.label, pb[0] - ax - 14), ax + 8, ay + 5,
+                        0xFFFFFF);
+                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.sub, pb[0] - ax - 14), ax + 8, ay + 16,
+                        GlassPanelRenderer.MUTED);
+                boolean hp = in(mx, my, pb);
+                boolean hg = in(mx, my, gb);
+                Glass.roundRect(g, pb[0], pb[1], pb[2], pb[3], 5, a(0x3DDC97, hp ? 0.55f : 0.35f));
+                Glass.roundRect(g, gb[0], gb[1], gb[2], gb[3], 5, a(accent, hg ? 0.45f : 0.30f));
+                int pw2 = GlassPanelRenderer.width(font, "Play");
+                int gw2 = GlassPanelRenderer.width(font, "Get");
+                GlassPanelRenderer.text(g, font, "Play", pb[0] + (pb[2] - pw2) / 2, pb[1] + (pb[3] - 9) / 2, 0xFFFFFF);
+                GlassPanelRenderer.text(g, font, "Get", gb[0] + (gb[2] - gw2) / 2, gb[1] + (gb[3] - 9) / 2, 0xFFFFFF);
             }
             case Row.PROGRESS -> drawProgressRow(g, font, accent, r, ax, ay);
             case Row.SAMPLE -> {
@@ -869,20 +896,29 @@ public final class ControlCenterScreen extends Screen {
         }
     }
 
+    private static int[] trackGetBtn(Row r, int ax, int ay) {
+        return new int[] {ax + r.w - 6 - 32, ay + 5, 32, r.h - 10};
+    }
+
+    private static int[] trackPlayBtn(Row r, int ax, int ay) {
+        return new int[] {ax + r.w - 6 - 32 - 4 - 38, ay + 5, 38, r.h - 10};
+    }
+
     private static String mb(long bytes) {
         return String.format(Locale.ROOT, "%.1f MB", bytes / 1048576.0);
     }
 
     private static String dlStatus(DownloadJob j) {
         if (j.state == DownloadJob.State.RUNNING && j.message.equals("Downloading")) {
+            String verb = j.stream ? "Loading to play " : "Downloading ";
             float p = j.progress();
             if (p >= 0) {
-                return "Downloading " + Math.round(p * 100) + "%  (" + mb(j.done) + " / " + mb(j.total) + ")";
+                return verb + Math.round(p * 100) + "%  (" + mb(j.done) + " / " + mb(j.total) + ")";
             }
-            return "Downloading " + mb(j.done);
+            return verb + mb(j.done);
         }
         if (j.state == DownloadJob.State.DONE) {
-            return "Saved to your music folder (" + mb(j.total) + ")";
+            return j.stream ? "Playing now (temporary, not in Library)" : "Saved to your music folder (" + mb(j.total) + ")";
         }
         return j.message;
     }
@@ -1279,12 +1315,14 @@ public final class ControlCenterScreen extends Screen {
         static final int NOTE = 6;
         static final int ITEM = 7;
         static final int PROGRESS = 8;
+        static final int TRACK = 9;
 
         final int kind;
         final String label;
         Supplier<String> value = () -> "";
         BooleanSupplier on = () -> false;
         Runnable action = () -> { };
+        Runnable action2 = () -> { };
         DoubleSupplier get = () -> 0;
         DoubleConsumer set = v -> { };
         DownloadJob job;
@@ -1313,6 +1351,10 @@ public final class ControlCenterScreen extends Screen {
             if (kind == PROGRESS) {
                 full = true;
                 h = 32;
+            }
+            if (kind == TRACK) {
+                full = true;
+                h = 28;
             }
         }
     }
@@ -1426,31 +1468,60 @@ public final class ControlCenterScreen extends Screen {
             clear.action = dm::clearFinished;
             out.add(clear);
         }
+        OnlineSearch.Result open = dm.openItem();
         DownloadManager.SearchState ss = dm.searchState();
-        if (ss == DownloadManager.SearchState.SEARCHING || ss == DownloadManager.SearchState.ERROR
-                || (ss == DownloadManager.SearchState.DONE && !dm.searchMessage().isEmpty())) {
-            out.add(note(dm.searchMessage()));
-        }
-        List<OnlineSearch.Result> res = dm.results();
-        if (!res.isEmpty()) {
-            out.add(note("Results (Internet Archive) - tap to download"));
-            for (OnlineSearch.Result it : res) {
-                Row r = new Row(Row.ITEM, it.title());
-                r.sub = it.creator().isEmpty() ? "Internet Archive" : it.creator();
+        if (open != null) {
+            Row back = new Row(Row.ACTION, "< Back to results");
+            back.action = dm::closeItem;
+            out.add(back);
+            out.add(note(GlassPanelRenderer.trim(open.title(), 60)));
+            if (dm.browseState() != DownloadManager.BrowseState.DONE || !dm.browseMessage().isEmpty()) {
+                out.add(note(dm.browseMessage()));
+            }
+            for (OnlineSearch.Track t : dm.browseTracks()) {
+                Row r = new Row(Row.TRACK, t.displayTitle());
+                String fmt = FileNames.extensionOf(t.name()).toUpperCase(Locale.ROOT);
+                r.sub = (t.size() > 0 ? fmt + " - " + mb(t.size()) : fmt)
+                        + (t.artist() != null && !t.artist().isBlank() ? " - " + t.artist() : "");
                 r.action = () -> {
-                    dm.enqueueItem(it);
-                    dlNotice = "Added: " + it.title();
+                    dm.enqueueTrack(t, open.creator(), false);
+                    dlNotice = "Downloading: " + t.displayTitle();
+                    refreshDownloadRows();
+                };
+                r.action2 = () -> {
+                    dm.enqueueTrack(t, open.creator(), true);
+                    dlNotice = "Loading to play: " + t.displayTitle();
                     refreshDownloadRows();
                 };
                 out.add(r);
             }
-        }
-        if (jobs.isEmpty() && res.isEmpty() && ss == DownloadManager.SearchState.IDLE) {
-            out.add(note("Paste a link to a song (.mp3 .m4a .ogg .wav)"));
-            out.add(note("or type a name to search free music."));
-            out.add(note("Songs go to your music folder, then Library."));
-            out.add(note("Lyrics are fetched when you play the song."));
-            out.add(note("YouTube/Spotify are protected: not supported."));
+        } else {
+            if (ss == DownloadManager.SearchState.SEARCHING || ss == DownloadManager.SearchState.ERROR
+                    || (ss == DownloadManager.SearchState.DONE && !dm.searchMessage().isEmpty())) {
+                out.add(note(dm.searchMessage()));
+            }
+            List<OnlineSearch.Result> res = dm.results();
+            if (!res.isEmpty()) {
+                out.add(note("Results (Internet Archive) - tap Open to see songs"));
+                for (OnlineSearch.Result it : res) {
+                    Row r = new Row(Row.ITEM, it.title());
+                    r.sub = it.creator().isEmpty() ? "Internet Archive" : it.creator();
+                    r.action = () -> {
+                        dm.openItem(it);
+                        dlNotice = "";
+                        rowsScroll = 0;
+                        refreshDownloadRows();
+                    };
+                    out.add(r);
+                }
+            }
+            if (jobs.isEmpty() && res.isEmpty() && ss == DownloadManager.SearchState.IDLE) {
+                out.add(note("Paste a link to a song (.mp3 .m4a .ogg .wav)"));
+                out.add(note("then tap Go (save) or Play (listen now)."));
+                out.add(note("Or type a name and tap Go to search free music."));
+                out.add(note("Pick a result, then Play or Get one song."));
+                out.add(note("YouTube/Spotify are protected: not supported."));
+            }
         }
     }
 
@@ -1479,7 +1550,7 @@ public final class ControlCenterScreen extends Screen {
         return false;
     }
 
-    private void startDownload() {
+    private void startDownload(boolean stream) {
         String raw = (downloadInput == null ? pendingLink : downloadInput.getValue()).strip();
         if (raw.isEmpty()) {
             dlNotice = "Paste a link or type a song name first.";
@@ -1491,8 +1562,8 @@ public final class ControlCenterScreen extends Screen {
                 if (blockedHost(raw)) {
                     dlNotice = "YouTube/Spotify and similar sites are protected\nand cannot be downloaded. Search by name instead.";
                 } else {
-                    XFiveLiveClient.DOWNLOADS.enqueueUrl(raw, null);
-                    dlNotice = "Link added to downloads.";
+                    XFiveLiveClient.DOWNLOADS.enqueueUrl(raw, null, stream);
+                    dlNotice = stream ? "Loading the song to play it..." : "Link added to downloads.";
                     pendingLink = "";
                     if (downloadInput != null) {
                         downloadInput.setValue("");
@@ -1537,6 +1608,7 @@ public final class ControlCenterScreen extends Screen {
                 out.add(toggle("Lyrics HUD", () -> c.enableLyrics, () -> c.enableLyrics = !c.enableLyrics));
                 out.add(cycle("Lyric animation", () -> LyricStyle.NAMES[LyricStyle.indexOf(c.lyricsAnim)],
                         () -> c.lyricsAnim = LyricStyle.next(c.lyricsAnim)));
+                out.add(toggle("Karaoke mode (under bar)", () -> c.karaokeMode, () -> c.karaokeMode = !c.karaokeMode));
                 out.add(toggle("Karaoke highlight", () -> c.lyricsKaraoke, () -> c.lyricsKaraoke = !c.lyricsKaraoke));
                 out.add(toggle("Prev/next lines", () -> c.lyricsPreview, () -> c.lyricsPreview = !c.lyricsPreview));
                 out.add(toggle("Instrumental dots", () -> c.lyricsCountdown, () -> c.lyricsCountdown = !c.lyricsCountdown));
@@ -1747,7 +1819,12 @@ public final class ControlCenterScreen extends Screen {
         if (page == Page.DOWNLOAD) {
             if (in(mx, my, goRect())) {
                 pressedKey = "go";
-                startDownload();
+                startDownload(false);
+                return true;
+            }
+            if (in(mx, my, playRect())) {
+                pressedKey = "dlplay";
+                startDownload(true);
                 return true;
             }
             if (in(mx, my, pasteRect())) {
@@ -1951,8 +2028,7 @@ public final class ControlCenterScreen extends Screen {
         }
         if (pressTarget == 1) {
             if (!dragged && pressedTrack >= 0) {
-                XFiveLiveClient.MUSIC.playlist().select(pressedTrack);
-                XFiveLiveClient.MUSIC.playCurrent();
+                XFiveLiveClient.MUSIC.playIndex(pressedTrack);
             }
             handled = true;
         } else if (pressTarget == 2) {
@@ -1979,6 +2055,17 @@ public final class ControlCenterScreen extends Screen {
             if (i >= 0 && i < Themes.IDS.length) {
                 XFiveLiveClient.CONFIG.theme = Themes.IDS[i];
                 XFiveLiveClient.CONFIG.save();
+            }
+            return;
+        }
+        if (r.kind == Row.TRACK) {
+            int ax = rowsX() + r.x;
+            int[] pb = trackPlayBtn(r, ax, 0);
+            int[] gb = trackGetBtn(r, ax, 0);
+            if (mx >= pb[0] && mx < pb[0] + pb[2]) {
+                r.action2.run();
+            } else if (mx >= gb[0] && mx < gb[0] + gb[2]) {
+                r.action.run();
             }
             return;
         }

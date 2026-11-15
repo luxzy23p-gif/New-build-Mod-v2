@@ -47,10 +47,21 @@ public final class XFiveLiveClient implements ClientModInitializer {
     public static final LyricsManager LYRICS = new LyricsManager();
     /** Unduhan lagu online (latar belakang). Hasilnya disimpan ke folder musik lalu daftar lagu dimuat ulang. */
     public static final DownloadManager DOWNLOADS = new DownloadManager(
-            XFiveLiveClient::downloadDir, com.xfive.live.download.Downloader.DEFAULT_MAX_BYTES, 2, 2, 1500L,
+            XFiveLiveClient::downloadDir, XFiveLiveClient::cacheDir,
+            com.xfive.live.download.Downloader.DEFAULT_MAX_BYTES, 2, 2, 1500L,
             job -> Minecraft.getInstance().execute(() -> {
                 refreshMusic();
                 MUSIC.setStatus("Saved: " + job.fileName);
+            }),
+            job -> Minecraft.getInstance().execute(() -> {
+                if (job.result == null) {
+                    return;
+                }
+                PlaylistManager.Track t = job.songTitle.isEmpty()
+                        ? PlaylistManager.parse(job.result)
+                        : new PlaylistManager.Track(job.result, job.songTitle,
+                                job.artist.isEmpty() ? "Unknown Artist" : job.artist);
+                MUSIC.playOnline(t);
             }));
 
     static final String SOURCE_FILE = "folder-musik.txt";
@@ -77,6 +88,11 @@ public final class XFiveLiveClient implements ClientModInitializer {
         return folder;
     }
 
+    /** Folder sementara untuk lagu "Play online". Dikosongkan setiap game mulai. */
+    static Path cacheDir() {
+        return FabricLoader.getInstance().getGameDir().resolve("xfive-cache");
+    }
+
     /** Folder musik yang sedang dipakai, ditampilkan di menu pengaturan. */
     public static Path musicFolder = null;
 
@@ -91,6 +107,7 @@ public final class XFiveLiveClient implements ClientModInitializer {
     public void onInitializeClient() {
         Registry.register(BuiltInRegistries.SOUND_EVENT, UI_SOUND_ID, UI_SOUND);
         CONFIG.load();
+        com.xfive.live.download.CacheCleaner.purge(cacheDir());
         reloadMusic();
         ensureLyricsFolder();
         MUSIC.setVolume(CONFIG.defaultVolume);
