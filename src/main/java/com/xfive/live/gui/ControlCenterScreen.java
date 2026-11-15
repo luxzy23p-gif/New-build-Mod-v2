@@ -8,7 +8,10 @@ import com.xfive.live.config.XFiveConfig;
 import com.xfive.live.download.DownloadJob;
 import com.xfive.live.download.DownloadManager;
 import com.xfive.live.download.FileNames;
-import com.xfive.live.download.OnlineSearch;
+import com.xfive.live.download.AudiusSearch;
+import com.xfive.live.config.DeviceInfo;
+import com.xfive.live.config.SpecSheet;
+import com.xfive.live.render.Artwork;
 import com.xfive.live.hud.DynamicIslandHud;
 import com.xfive.live.music.PlaylistManager;
 import com.xfive.live.render.Glass;
@@ -21,6 +24,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -718,14 +722,19 @@ public final class ControlCenterScreen extends Screen {
         int cx = n[0] + (n[2] - cover) / 2;
         int cy = n[1] + 4;
         int color = t == null ? 0x4A4D55 : coverColor(t);
-        Glass.roundRect(g, cx, cy, cover, cover, 6, a(color, 0.92f));
-        Glass.disc(g, cx + cover / 2, cy + cover / 2, Math.max(6, cover / 4), a(0x000000, 0.22f));
-        String ini = t == null ? "X5" : initial(t);
-        g.pose().pushMatrix();
-        g.pose().translate((float) (cx + cover / 2), (float) (cy + cover / 2));
-        g.pose().scale(2f, 2f);
-        GlassPanelRenderer.text(g, font, ini, -GlassPanelRenderer.width(font, ini) / 2, -4, 0xFFFFFF);
-        g.pose().popMatrix();
+        Artwork.Tex art = Artwork.forCurrent();
+        if (art != null) {
+            Artwork.draw(g, art, cx, cy, cover);
+        } else {
+            Glass.roundRect(g, cx, cy, cover, cover, 6, a(color, 0.92f));
+            Glass.disc(g, cx + cover / 2, cy + cover / 2, Math.max(6, cover / 4), a(0x000000, 0.22f));
+            String ini = t == null ? "X5" : initial(t);
+            g.pose().pushMatrix();
+            g.pose().translate((float) (cx + cover / 2), (float) (cy + cover / 2));
+            g.pose().scale(2f, 2f);
+            GlassPanelRenderer.text(g, font, ini, -GlassPanelRenderer.width(font, ini) / 2, -4, 0xFFFFFF);
+            g.pose().popMatrix();
+        }
 
         int tx = n[0] + 6;
         int maxW = n[2] - 12;
@@ -857,31 +866,32 @@ public final class ControlCenterScreen extends Screen {
                     }
                 }
             }
-            case Row.ITEM -> {
-                int gw = 38;
-                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.label, r.w - gw - 24), ax + 8, ay + 5,
-                        0xFFFFFF);
-                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.sub, r.w - gw - 24), ax + 8, ay + 16,
-                        GlassPanelRenderer.MUTED);
-                Glass.roundRect(g, ax + r.w - gw - 6, ay + 5, gw, r.h - 10, 5, a(accent, hov ? 0.45f : 0.30f));
-                int tw = GlassPanelRenderer.width(font, "Open");
-                GlassPanelRenderer.text(g, font, "Open", ax + r.w - gw - 6 + (gw - tw) / 2, ay + (r.h - 9) / 2, 0xFFFFFF);
-            }
-            case Row.TRACK -> {
+            case Row.SONG -> {
+                AudiusSearch.Song so = r.song;
                 int[] pb = trackPlayBtn(r, ax, ay);
                 int[] gb = trackGetBtn(r, ax, ay);
-                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.label, pb[0] - ax - 14), ax + 8, ay + 5,
-                        0xFFFFFF);
-                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.sub, pb[0] - ax - 14), ax + 8, ay + 16,
-                        GlassPanelRenderer.MUTED);
-                boolean hp = in(mx, my, pb);
-                boolean hg = in(mx, my, gb);
-                Glass.roundRect(g, pb[0], pb[1], pb[2], pb[3], 5, a(0x3DDC97, hp ? 0.55f : 0.35f));
-                Glass.roundRect(g, gb[0], gb[1], gb[2], gb[3], 5, a(accent, hg ? 0.45f : 0.30f));
+                int tl = ax + 6 + 24 + 6;
+                int right = so.downloadable() ? pb[0] : playOnlyBtn(r, ax, ay)[0];
+                Artwork.Tex th = Artwork.get(so.artSmallUrl());
+                if (th != null) {
+                    Artwork.draw(g, th, ax + 6, ay + 4, 24);
+                } else {
+                    Glass.roundRect(g, ax + 6, ay + 4, 24, 24, 4, a(accent, 0.25f));
+                }
+                String dur = so.duration();
+                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.label, right - tl - 6), tl, ay + 6, 0xFFFFFF);
+                GlassPanelRenderer.text(g, font,
+                        GlassPanelRenderer.fit(font, so.artist() + (dur.isEmpty() ? "" : "  " + dur), right - tl - 6), tl,
+                        ay + 18, GlassPanelRenderer.MUTED);
+                int[] pbtn = so.downloadable() ? pb : playOnlyBtn(r, ax, ay);
+                Glass.roundRect(g, pbtn[0], pbtn[1], pbtn[2], pbtn[3], 5, a(0x3DDC97, in(mx, my, pbtn) ? 0.55f : 0.35f));
                 int pw2 = GlassPanelRenderer.width(font, "Play");
-                int gw2 = GlassPanelRenderer.width(font, "Get");
-                GlassPanelRenderer.text(g, font, "Play", pb[0] + (pb[2] - pw2) / 2, pb[1] + (pb[3] - 9) / 2, 0xFFFFFF);
-                GlassPanelRenderer.text(g, font, "Get", gb[0] + (gb[2] - gw2) / 2, gb[1] + (gb[3] - 9) / 2, 0xFFFFFF);
+                GlassPanelRenderer.text(g, font, "Play", pbtn[0] + (pbtn[2] - pw2) / 2, pbtn[1] + (pbtn[3] - 9) / 2, 0xFFFFFF);
+                if (so.downloadable()) {
+                    Glass.roundRect(g, gb[0], gb[1], gb[2], gb[3], 5, a(accent, in(mx, my, gb) ? 0.45f : 0.30f));
+                    int gw2 = GlassPanelRenderer.width(font, "Get");
+                    GlassPanelRenderer.text(g, font, "Get", gb[0] + (gb[2] - gw2) / 2, gb[1] + (gb[3] - 9) / 2, 0xFFFFFF);
+                }
             }
             case Row.PROGRESS -> drawProgressRow(g, font, accent, r, ax, ay);
             case Row.SAMPLE -> {
@@ -896,12 +906,16 @@ public final class ControlCenterScreen extends Screen {
         }
     }
 
+    private static int[] playOnlyBtn(Row r, int ax, int ay) {
+        return new int[] {ax + r.w - 6 - 38, ay + 6, 38, r.h - 12};
+    }
+
     private static int[] trackGetBtn(Row r, int ax, int ay) {
-        return new int[] {ax + r.w - 6 - 32, ay + 5, 32, r.h - 10};
+        return new int[] {ax + r.w - 6 - 32, ay + 6, 32, r.h - 12};
     }
 
     private static int[] trackPlayBtn(Row r, int ax, int ay) {
-        return new int[] {ax + r.w - 6 - 32 - 4 - 38, ay + 5, 38, r.h - 10};
+        return new int[] {ax + r.w - 6 - 32 - 4 - 38, ay + 6, 38, r.h - 12};
     }
 
     private static String mb(long bytes) {
@@ -1007,10 +1021,15 @@ public final class ControlCenterScreen extends Screen {
         // kiri: sampul kecil + judul
         int cover = 26;
         int cyTop = by + 11;
-        Glass.roundRect(g, px + 10, cyTop, cover, cover, 5, a(t == null ? 0x4A4D55 : coverColor(t), 0.92f));
-        String ini = t == null ? "X" : initial(t);
-        GlassPanelRenderer.text(g, font, ini, px + 10 + (cover - GlassPanelRenderer.width(font, ini)) / 2,
-                cyTop + 9, 0xFFFFFF);
+        Artwork.Tex barArt = Artwork.forCurrent();
+        if (barArt != null) {
+            Artwork.draw(g, barArt, px + 10, cyTop, cover);
+        } else {
+            Glass.roundRect(g, px + 10, cyTop, cover, cover, 5, a(t == null ? 0x4A4D55 : coverColor(t), 0.92f));
+            String ini = t == null ? "X" : initial(t);
+            GlassPanelRenderer.text(g, font, ini, px + 10 + (cover - GlassPanelRenderer.width(font, ini)) / 2,
+                    cyTop + 9, 0xFFFFFF);
+        }
         int tx = px + 10 + cover + 6;
         int maxW = Math.max(30, r[0][0] - 8 - tx);
         GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, t == null ? "Nothing playing" : t.title(), maxW),
@@ -1095,7 +1114,28 @@ public final class ControlCenterScreen extends Screen {
     // Halaman Spesifikasi (animasi: HP tergambar, chip membal, judul glitch, baris diketik)
     // =====================================================================
 
+    private static boolean glTried;
+
+    /** Memilih isi halaman Specs: hasil deteksi perangkat (jika siap dan diaktifkan) atau preset. */
+    private static void syncSpecs() {
+        if (!glTried) {
+            glTried = true;
+            try {
+                DeviceInfo.setGlRenderer(GL11.glGetString(GL11.GL_RENDERER));
+            } catch (Throwable ignored) {
+                // tidak ada konteks OpenGL; GPU dibaca dari sistem saja
+            }
+        }
+        DeviceInfo.Result d = XFiveLiveClient.CONFIG.specAuto ? DeviceInfo.detected() : null;
+        if (d != null) {
+            SpecSheet.use(d.title(), d.rows());
+        } else {
+            SpecSheet.usePreset();
+        }
+    }
+
     private void drawSpecs(GuiGraphicsExtractor g, Font font, int accent) {
+        syncSpecs();
         double s = (System.nanoTime() - pageNanos) / 1_000_000_000.0;
         if (!animOn()) {
             s = 99.0;
@@ -1115,8 +1155,8 @@ public final class ControlCenterScreen extends Screen {
         }
 
         // judul besar (2x bila muat), diikuti baris spesifikasi
-        int w1 = GlassPanelRenderer.width(font, com.xfive.live.config.SpecSheet.TITLE);
-        int rows = com.xfive.live.config.SpecSheet.ROWS.length;
+        int w1 = GlassPanelRenderer.width(font, SpecSheet.title());
+        int rows = SpecSheet.rows().length;
         int rowH = 13;
         boolean big = tw >= 2 * w1 + 6 && h >= 2 * 9 + 8 + rows * rowH + 6;
         int hs = big ? 2 : 1;
@@ -1127,7 +1167,7 @@ public final class ControlCenterScreen extends Screen {
 
         int ry = ty + 9 * hs + 8;
         int labelW = 0;
-        for (String[] r : com.xfive.live.config.SpecSheet.ROWS) {
+        for (String[] r : SpecSheet.rows()) {
             labelW = Math.max(labelW, GlassPanelRenderer.width(font, r[0]));
         }
         for (int i = 0; i < rows; i++) {
@@ -1135,7 +1175,7 @@ public final class ControlCenterScreen extends Screen {
             if (e <= 0f) {
                 continue;
             }
-            String[] r = com.xfive.live.config.SpecSheet.ROWS[i];
+            String[] r = SpecSheet.rows()[i];
             int dx = Math.round((1f - e) * 22f);
             int yy = ry + i * rowH;
             g.fill(tx + dx, yy + 1, tx + dx + 3, yy + 4, a(accent, e));
@@ -1154,13 +1194,15 @@ public final class ControlCenterScreen extends Screen {
         }
         if (s > com.xfive.live.config.SpecSheet.total()) {
             String hint = "Tap to replay";
+            GlassPanelRenderer.textAlpha(g, font, XFiveLiveClient.CONFIG.specAuto && DeviceInfo.detected() != null
+                    ? "Read from this device" : "Preset", x, y + h - 9, 0xA9B2C8, 0.55f);
             GlassPanelRenderer.textAlpha(g, font, hint, x + w - GlassPanelRenderer.width(font, hint), y + h - 9,
                     0xA9B2C8, 0.55f);
         }
     }
 
     private void drawSpecHeading(GuiGraphicsExtractor g, Font font, int x, int y, int hs, int accent, double s) {
-        String t = com.xfive.live.config.SpecSheet.TITLE;
+        String t = SpecSheet.title();
         int lastSpace = t.lastIndexOf(' ');
         g.pose().pushMatrix();
         g.pose().translate((float) x, (float) y);
@@ -1313,9 +1355,8 @@ public final class ControlCenterScreen extends Screen {
         static final int SWATCHES = 4;
         static final int SAMPLE = 5;
         static final int NOTE = 6;
-        static final int ITEM = 7;
         static final int PROGRESS = 8;
-        static final int TRACK = 9;
+        static final int SONG = 9;
 
         final int kind;
         final String label;
@@ -1326,6 +1367,7 @@ public final class ControlCenterScreen extends Screen {
         DoubleSupplier get = () -> 0;
         DoubleConsumer set = v -> { };
         DownloadJob job;
+        AudiusSearch.Song song;
         String sub = "";
         boolean full;
         int h = 22;
@@ -1344,17 +1386,13 @@ public final class ControlCenterScreen extends Screen {
                 full = true;
                 h = 16;
             }
-            if (kind == ITEM) {
-                full = true;
-                h = 28;
-            }
             if (kind == PROGRESS) {
                 full = true;
                 h = 32;
             }
-            if (kind == TRACK) {
+            if (kind == SONG) {
                 full = true;
-                h = 28;
+                h = 32;
             }
         }
     }
@@ -1468,60 +1506,36 @@ public final class ControlCenterScreen extends Screen {
             clear.action = dm::clearFinished;
             out.add(clear);
         }
-        OnlineSearch.Result open = dm.openItem();
         DownloadManager.SearchState ss = dm.searchState();
-        if (open != null) {
-            Row back = new Row(Row.ACTION, "< Back to results");
-            back.action = dm::closeItem;
-            out.add(back);
-            out.add(note(GlassPanelRenderer.trim(open.title(), 60)));
-            if (dm.browseState() != DownloadManager.BrowseState.DONE || !dm.browseMessage().isEmpty()) {
-                out.add(note(dm.browseMessage()));
-            }
-            for (OnlineSearch.Track t : dm.browseTracks()) {
-                Row r = new Row(Row.TRACK, t.displayTitle());
-                String fmt = FileNames.extensionOf(t.name()).toUpperCase(Locale.ROOT);
-                r.sub = (t.size() > 0 ? fmt + " - " + mb(t.size()) : fmt)
-                        + (t.artist() != null && !t.artist().isBlank() ? " - " + t.artist() : "");
+        if (ss == DownloadManager.SearchState.SEARCHING || ss == DownloadManager.SearchState.ERROR
+                || (ss == DownloadManager.SearchState.DONE && !dm.searchMessage().isEmpty())) {
+            out.add(note(dm.searchMessage()));
+        }
+        List<AudiusSearch.Song> res = dm.results();
+        if (!res.isEmpty()) {
+            out.add(note("Tap Play to listen. Get = save (if the artist allows)."));
+            for (AudiusSearch.Song so : res) {
+                Row r = new Row(Row.SONG, so.title());
+                r.song = so;
                 r.action = () -> {
-                    dm.enqueueTrack(t, open.creator(), false);
-                    dlNotice = "Downloading: " + t.displayTitle();
-                    refreshDownloadRows();
+                    if (dm.enqueueSong(so, false) != null) {
+                        dlNotice = "Saving: " + so.title();
+                        refreshDownloadRows();
+                    }
                 };
                 r.action2 = () -> {
-                    dm.enqueueTrack(t, open.creator(), true);
-                    dlNotice = "Loading to play: " + t.displayTitle();
+                    dm.enqueueSong(so, true);
+                    dlNotice = "Loading to play: " + so.title();
                     refreshDownloadRows();
                 };
                 out.add(r);
             }
-        } else {
-            if (ss == DownloadManager.SearchState.SEARCHING || ss == DownloadManager.SearchState.ERROR
-                    || (ss == DownloadManager.SearchState.DONE && !dm.searchMessage().isEmpty())) {
-                out.add(note(dm.searchMessage()));
-            }
-            List<OnlineSearch.Result> res = dm.results();
-            if (!res.isEmpty()) {
-                out.add(note("Results (Internet Archive) - tap Open to see songs"));
-                for (OnlineSearch.Result it : res) {
-                    Row r = new Row(Row.ITEM, it.title());
-                    r.sub = it.creator().isEmpty() ? "Internet Archive" : it.creator();
-                    r.action = () -> {
-                        dm.openItem(it);
-                        dlNotice = "";
-                        rowsScroll = 0;
-                        refreshDownloadRows();
-                    };
-                    out.add(r);
-                }
-            }
-            if (jobs.isEmpty() && res.isEmpty() && ss == DownloadManager.SearchState.IDLE) {
-                out.add(note("Paste a link to a song (.mp3 .m4a .ogg .wav)"));
-                out.add(note("then tap Go (save) or Play (listen now)."));
-                out.add(note("Or type a name and tap Go to search free music."));
-                out.add(note("Pick a result, then Play or Get one song."));
-                out.add(note("YouTube/Spotify are protected: not supported."));
-            }
+        }
+        if (jobs.isEmpty() && res.isEmpty() && ss == DownloadManager.SearchState.IDLE) {
+            out.add(note("Type a song or artist, then tap Go."));
+            out.add(note("Tap Play on a result to listen right away."));
+            out.add(note("Or paste a link to a song file, then Go or Play."));
+            out.add(note("YouTube/Spotify are protected: not supported."));
         }
     }
 
@@ -1608,7 +1622,6 @@ public final class ControlCenterScreen extends Screen {
                 out.add(toggle("Lyrics HUD", () -> c.enableLyrics, () -> c.enableLyrics = !c.enableLyrics));
                 out.add(cycle("Lyric animation", () -> LyricStyle.NAMES[LyricStyle.indexOf(c.lyricsAnim)],
                         () -> c.lyricsAnim = LyricStyle.next(c.lyricsAnim)));
-                out.add(toggle("Karaoke mode (under bar)", () -> c.karaokeMode, () -> c.karaokeMode = !c.karaokeMode));
                 out.add(toggle("Karaoke highlight", () -> c.lyricsKaraoke, () -> c.lyricsKaraoke = !c.lyricsKaraoke));
                 out.add(toggle("Prev/next lines", () -> c.lyricsPreview, () -> c.lyricsPreview = !c.lyricsPreview));
                 out.add(toggle("Instrumental dots", () -> c.lyricsCountdown, () -> c.lyricsCountdown = !c.lyricsCountdown));
@@ -1655,6 +1668,7 @@ public final class ControlCenterScreen extends Screen {
                 out.add(toggle("Enable XFiveLive", () -> c.enableMod, () -> c.enableMod = !c.enableMod));
                 out.add(toggle("Auto resume music", () -> c.autoResume, () -> c.autoResume = !c.autoResume));
                 out.add(toggle("Show album artwork", () -> c.showArtwork, () -> c.showArtwork = !c.showArtwork));
+                out.add(toggle("Specs: read my device", () -> c.specAuto, () -> c.specAuto = !c.specAuto));
                 out.add(toggle("Auto-download lyrics", () -> c.autoLyrics, () -> c.autoLyrics = !c.autoLyrics));
                 out.add(action("Rescan music folder", XFiveLiveClient::refreshMusic));
                 Row note = new Row(Row.NOTE, "Music folder: xfive-music   Lyrics: xfive-lirik");
@@ -2058,19 +2072,19 @@ public final class ControlCenterScreen extends Screen {
             }
             return;
         }
-        if (r.kind == Row.TRACK) {
+        if (r.kind == Row.SONG) {
             int ax = rowsX() + r.x;
-            int[] pb = trackPlayBtn(r, ax, 0);
+            int[] pb = r.song.downloadable() ? trackPlayBtn(r, ax, 0) : playOnlyBtn(r, ax, 0);
             int[] gb = trackGetBtn(r, ax, 0);
             if (mx >= pb[0] && mx < pb[0] + pb[2]) {
                 r.action2.run();
-            } else if (mx >= gb[0] && mx < gb[0] + gb[2]) {
+            } else if (r.song.downloadable() && mx >= gb[0] && mx < gb[0] + gb[2]) {
                 r.action.run();
             }
             return;
         }
         if (r.kind == Row.TOGGLE || r.kind == Row.CYCLE || r.kind == Row.ACTION
-                || r.kind == Row.ITEM || r.kind == Row.PROGRESS) {
+                || r.kind == Row.PROGRESS) {
             r.action.run();
         }
     }

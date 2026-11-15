@@ -14,7 +14,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * Antrean unduhan di latar belakang (maks 2 sekaligus), pencarian online, dan daftar lagu satu hasil.
+ * Antrean unduhan di latar belakang (maks 2 sekaligus) dan pencarian lagu online (Audius).
  * Dua jenis unduhan: "Get" (disimpan ke folder musik) dan "Play" (disimpan sementara di folder cache
  * lalu langsung diputar, tidak masuk Library). Layar membaca {@link #version()} untuk tahu kapan
  * daftar perlu digambar ulang.
@@ -22,14 +22,11 @@ import java.util.function.Supplier;
 public final class DownloadManager {
     public enum SearchState { IDLE, SEARCHING, DONE, ERROR }
 
-    public enum BrowseState { NONE, LOADING, DONE, ERROR }
-
     private static final long CACHE_MAX_BYTES = 150L * 1024 * 1024;
 
     private final Supplier<Path> dir;
     private final Supplier<Path> cacheDir;
     private final Downloader downloader;
-    private final long maxBytes;
     private final ExecutorService pool;
     private final Consumer<DownloadJob> onSaved;
     private final Consumer<DownloadJob> onStreamReady;
@@ -41,14 +38,8 @@ public final class DownloadManager {
 
     private volatile SearchState searchState = SearchState.IDLE;
     private volatile String searchMessage = "";
-    private volatile List<OnlineSearch.Result> results = List.of();
+    private volatile List<AudiusSearch.Song> results = List.of();
     private final AtomicInteger searchSeq = new AtomicInteger();
-
-    private volatile OnlineSearch.Result openItem;
-    private volatile BrowseState browseState = BrowseState.NONE;
-    private volatile String browseMessage = "";
-    private volatile List<OnlineSearch.Track> browseTracks = List.of();
-    private final AtomicInteger browseSeq = new AtomicInteger();
 
     public DownloadManager(Supplier<Path> dir, long maxBytes, int threads, int retries, long backoffMs,
                            Consumer<DownloadJob> onSaved) {
@@ -64,7 +55,6 @@ public final class DownloadManager {
                            long backoffMs, Consumer<DownloadJob> onSaved, Consumer<DownloadJob> onStreamReady) {
         this.dir = dir;
         this.cacheDir = cacheDir;
-        this.maxBytes = maxBytes;
         this.downloader = new Downloader(maxBytes, retries, backoffMs);
         this.onSaved = onSaved;
         this.onStreamReady = onStreamReady;
@@ -91,24 +81,8 @@ public final class DownloadManager {
         return searchMessage;
     }
 
-    public List<OnlineSearch.Result> results() {
+    public List<AudiusSearch.Song> results() {
         return results;
-    }
-
-    public OnlineSearch.Result openItem() {
-        return openItem;
-    }
-
-    public BrowseState browseState() {
-        return browseState;
-    }
-
-    public String browseMessage() {
-        return browseMessage;
-    }
-
-    public List<OnlineSearch.Track> browseTracks() {
-        return browseTracks;
     }
 
     public boolean busy() {
@@ -133,13 +107,18 @@ public final class DownloadManager {
         return enqueue(u, title == null || title.isBlank() ? nameFromUrl(u) : title, stream, false, "", "");
     }
 
-    /** Mengunduh/memutar SATU lagu dari daftar lagu sebuah hasil pencarian. */
-    public DownloadJob enqueueTrack(OnlineSearch.Track t, String itemCreator, boolean stream) {
-        String title = t.displayTitle();
-        String artist = t.artist() != null && !t.artist().isBlank() ? t.artist().strip()
-                : itemCreator == null ? "" : itemCreator.strip();
-        String label = artist.isEmpty() ? title : artist + " - " + title;
-        return enqueue(t.url(), label, stream, true, artist, title);
+    /**
+     * Memutar (stream=true) atau menyimpan (stream=false) SATU lagu hasil pencarian.
+     * Menyimpan hanya untuk lagu yang pengunggahnya mengizinkan unduhan; selain itu mengembalikan null.
+     */
+    public DownloadJob enqueueSong(AudiusSearch.Song song, boolean stream) {
+        if (!stream && !song.downloadable()) {
+            return null;
+        }
+        DownloadJob job = enqueue(song.streamUrl(), song.artist() + " - " + song.title(), stream, true, song.artist(),
+                song.title());
+        job.artUrl = song.artUrl();
+        return job;
     }
 
     private DownloadJob enqueue(String url, String label, boolean stream, boolean nameFromTitle, String artist,
@@ -246,7 +225,8 @@ public final class DownloadManager {
             return;
         }
         jobs.remove(job);
-        enqueue(job.url, job.title, job.stream, job.nameFromTitle, job.artist, job.songTitle);
+        DownloadJob again = enqueue(job.url, job.title, job.stream, job.nameFromTitle, job.artist, job.songTitle);
+        again.artUrl = job.artUrl;
         version.incrementAndGet();
     }
 
@@ -270,17 +250,16 @@ public final class DownloadManager {
 
     // ------------------------------------------------------------------ pencarian
 
-    /** Mencari di Internet Archive (latar belakang). Pencarian lama yang tertinggal diabaikan. */
+    /** Mencari lagu di Audius (latar belakang). Pencarian lama yang tertinggal diabaikan. */
     public void search(String query) {
         final int seq = searchSeq.incrementAndGet();
-        closeItem();
         searchState = SearchState.SEARCHING;
         searchMessage = "Searching...";
         results = List.of();
         version.incrementAndGet();
         Thread t = new Thread(() -> {
             try {
-                List<OnlineSearch.Result> r = OnlineSearch.search(query, 25);
+                List<AudiusSearch.Song> r = AudiusSearch.search(query, 25);
                 if (seq != searchSeq.get()) {
                     return;
                 }
@@ -298,46 +277,6 @@ public final class DownloadManager {
         }, "xfive-search");
         t.setDaemon(true);
         t.start();
-    }
-
-    /** Membuka satu hasil pencarian: memuat daftar lagunya (tanpa mengunduh apa pun). */
-    public void openItem(OnlineSearch.Result r) {
-        final int seq = browseSeq.incrementAndGet();
-        openItem = r;
-        browseState = BrowseState.LOADING;
-        browseMessage = "Loading songs...";
-        browseTracks = List.of();
-        version.incrementAndGet();
-        Thread t = new Thread(() -> {
-            try {
-                List<OnlineSearch.Track> tr = OnlineSearch.tracks(r.identifier(), maxBytes);
-                if (seq != browseSeq.get()) {
-                    return;
-                }
-                browseTracks = tr;
-                browseState = BrowseState.DONE;
-                browseMessage = tr.isEmpty() ? "No song files here. Go back and pick another." : "";
-            } catch (IOException | RuntimeException e) {
-                if (seq != browseSeq.get()) {
-                    return;
-                }
-                browseState = BrowseState.ERROR;
-                browseMessage = "Could not load: " + (e.getMessage() == null ? "no internet?" : e.getMessage());
-            }
-            version.incrementAndGet();
-        }, "xfive-browse");
-        t.setDaemon(true);
-        t.start();
-    }
-
-    /** Kembali dari daftar lagu ke daftar hasil pencarian. */
-    public void closeItem() {
-        browseSeq.incrementAndGet();
-        openItem = null;
-        browseState = BrowseState.NONE;
-        browseMessage = "";
-        browseTracks = List.of();
-        version.incrementAndGet();
     }
 
     public void shutdown() {

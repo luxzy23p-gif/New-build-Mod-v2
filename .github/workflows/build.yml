@@ -32,23 +32,6 @@ jobs:
       - name: Build mod jar
         run: gradle build --no-daemon
 
-      - name: API dump (temporary)
-        continue-on-error: true
-        run: |
-          J=$(grep -rl --include=*.jar "net/minecraft/client/gui/GuiGraphicsExtractor" ~/.gradle ~/.cache . 2>/dev/null | head -1)
-          echo "jar=$J"
-          dump() { # title class filter
-            OUT=$(javap -public -cp "$J" "$2" 2>&1 | grep -E "$3" | sed 's/^ *//' | head -60)
-            OUT="${OUT//'%'/'%25'}"; OUT="${OUT//$'\n'/'%0A'}"; OUT="${OUT//$'\r'/'%0D'}"
-            echo "::notice title=$1::$OUT"
-          }
-          dump G net.minecraft.client.gui.GuiGraphicsExtractor "blit|image|Texture|texture|sprite|nextStratum"
-          dump DT net.minecraft.client.renderer.texture.DynamicTexture "."
-          dump NI com.mojang.blaze3d.platform.NativeImage "read|NativeImage\(|setPixel|getPixel|upload|close|Format"
-          dump TM net.minecraft.client.renderer.texture.TextureManager "register|release|getTexture"
-          dump RP net.minecraft.client.renderer.RenderPipelines "GUI_TEXTURED"
-          dump KB net.minecraft.client.KeyboardHandler "lipboard"
-
       - name: Read mod version
         id: ver
         run: echo "v=$(grep '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"

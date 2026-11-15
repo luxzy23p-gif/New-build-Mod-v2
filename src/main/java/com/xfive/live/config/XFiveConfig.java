@@ -55,8 +55,8 @@ public final class XFiveConfig {
     public boolean lyricsPreview = true;
     /** Titik hitung mundur saat jeda instrumental panjang. */
     public boolean lyricsCountdown = true;
-    /** Mode karaoke: lirik besar dengan sorot per huruf, tepat di bawah Dynamic Bar. */
-    public boolean karaokeMode = false;
+    /** Halaman Specs memakai spesifikasi perangkat yang terdeteksi (jika gagal, memakai preset). */
+    public boolean specAuto = true;
     /** Geser sinkron lirik dalam ms (-3000..3000). Plus = lirik muncul lebih lambat. */
     public int lyricsOffsetMs = 0;
 
@@ -136,7 +136,7 @@ public final class XFiveConfig {
         lyricsKaraoke = bool(p, "lyrics.karaoke", lyricsKaraoke);
         lyricsPreview = bool(p, "lyrics.preview", lyricsPreview);
         lyricsCountdown = bool(p, "lyrics.countdown", lyricsCountdown);
-        karaokeMode = bool(p, "lyrics.karaokeMode", karaokeMode);
+        specAuto = bool(p, "specs.auto", specAuto);
         lyricsOffsetMs = integer(p, "lyrics.offsetMs", lyricsOffsetMs, -3000, 3000);
 
         theme = Themes.normalize(p.getProperty("appearance.theme", theme));
@@ -186,7 +186,7 @@ public final class XFiveConfig {
         put(p, "lyrics.karaoke", lyricsKaraoke);
         put(p, "lyrics.preview", lyricsPreview);
         put(p, "lyrics.countdown", lyricsCountdown);
-        put(p, "lyrics.karaokeMode", karaokeMode);
+        put(p, "specs.auto", specAuto);
         put(p, "lyrics.offsetMs", lyricsOffsetMs);
 
         put(p, "appearance.theme", theme);

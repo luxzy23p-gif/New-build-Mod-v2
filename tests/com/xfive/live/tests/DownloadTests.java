@@ -8,7 +8,7 @@ import com.xfive.live.download.DownloadJob;
 import com.xfive.live.download.DownloadManager;
 import com.xfive.live.download.FileNames;
 import com.xfive.live.download.MiniJson;
-import com.xfive.live.download.OnlineSearch;
+import com.xfive.live.download.AudiusSearch;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -127,75 +127,41 @@ final class DownloadTests {
                 && !FileNames.isHttpUrl("https://") && !FileNames.isHttpUrl("https://a b.com") && !FileNames.isHttpUrl(null)
                 && !FileNames.isHttpUrl("file:///etc/passwd") && !FileNames.isHttpUrl("javascript:alert(1)"));
 
-        ok("clean query", "ab c".equals(OnlineSearch.cleanQuery("(ab) AND:\"c\"").replace("AND", "").replaceAll("\\s+", " ").strip())
-                || OnlineSearch.cleanQuery("a+b:c").equals("a b c"));
-        ok("clean query empty", OnlineSearch.cleanQuery("()!!").isEmpty() && OnlineSearch.cleanQuery(null).isEmpty());
-        ok("search url", OnlineSearch.searchUrl("jazz piano", 10).startsWith("https://archive.org/advancedsearch.php?q=")
-                && OnlineSearch.searchUrl("jazz piano", 10).contains("mediatype%3Aaudio")
-                && OnlineSearch.searchUrl("jazz piano", 10).contains("rows=10"));
-        ok("download url encode", "https://archive.org/download/id1/dir/My%20Song%20%231.mp3"
-                .equals(OnlineSearch.downloadUrl("id1", "dir/My Song #1.mp3")));
-
-        String sj = "{\"response\":{\"numFound\":3,\"docs\":["
-                + "{\"identifier\":\"abc\",\"title\":\"Title A\",\"creator\":\"Artist\",\"downloads\":500},"
-                + "{\"identifier\":\"def\",\"creator\":[\"First\",\"Second\"],\"downloads\":\"7\"},"
-                + "{\"title\":\"no id\"}]}}";
-        List<OnlineSearch.Result> rs = OnlineSearch.parseSearch(sj);
-        ok("parse search count", rs.size() == 2);
-        ok("parse search fields", rs.get(0).title().equals("Title A") && rs.get(0).creator().equals("Artist") && rs.get(0).downloads() == 500);
-        ok("parse search fallbacks", rs.get(1).title().equals("def") && rs.get(1).creator().equals("First") && rs.get(1).downloads() == 7);
-        ok("parse search empty", OnlineSearch.parseSearch("{\"response\":{\"docs\":[]}}").isEmpty());
-        boolean t1 = false;
+        ok("audius clean query", "a b".equals(AudiusSearch.cleanQuery("  a\n b ")) && AudiusSearch.cleanQuery(null).isEmpty());
+        ok("audius search url", AudiusSearch.searchUrl("kimi no nawa", 10).startsWith("https://api.audius.co/v1/tracks/search?query=kimi+no+nawa")
+                && AudiusSearch.searchUrl("kimi no nawa", 10).contains("limit=10") && AudiusSearch.searchUrl("x", 1).contains("app_name=XFiveLive"));
+        ok("audius search url encodes", AudiusSearch.searchUrl("a&b=c", 5).contains("query=a%26b%3Dc"));
+        String aj = "{\"data\":["
+                + "{\"id\":\"L5WaY\",\"title\":\"y2mate.com - Ari Lasso Cinta\",\"user\":{\"name\":\"Kamilla\"},"
+                + "\"artwork\":{\"150x150\":\"https://x/s.jpg\",\"480x480\":\"https://x/m.jpg\",\"1000x1000\":\"https://x/l.jpg\"},"
+                + "\"duration\":258,\"is_streamable\":true,\"is_downloadable\":false,\"access\":{\"stream\":true,\"download\":true}},"
+                + "{\"id\":\"dl1\",\"title\":\"Free Song\",\"user\":{\"name\":\"Artist\"},\"duration\":65.4,\"is_downloadable\":true,\"artwork\":null},"
+                + "{\"id\":\"gated\",\"title\":\"Gated\",\"is_stream_gated\":true},"
+                + "{\"id\":\"nostream\",\"title\":\"X\",\"is_streamable\":false},"
+                + "{\"id\":\"noaccess\",\"title\":\"X\",\"access\":{\"stream\":false}},"
+                + "{\"title\":\"no id\"}]}";
+        List<AudiusSearch.Song> songs = AudiusSearch.parse(aj);
+        ok("audius keeps only streamable songs", songs.size() == 2 && songs.get(0).id().equals("L5WaY") && songs.get(1).id().equals("dl1"));
+        ok("audius fields", songs.get(0).title().equals("Ari Lasso Cinta") && songs.get(0).artist().equals("Kamilla")
+                && songs.get(0).artUrl().equals("https://x/m.jpg") && songs.get(0).artSmallUrl().equals("https://x/s.jpg")
+                && songs.get(0).seconds() == 258 && "4:18".equals(songs.get(0).duration()) && !songs.get(0).downloadable());
+        ok("audius downloadable + fallbacks", songs.get(1).downloadable() && songs.get(1).artUrl().isEmpty()
+                && songs.get(1).seconds() == 65 && "1:05".equals(songs.get(1).duration()));
+        ok("audius stream url", songs.get(0).streamUrl().equals("https://api.audius.co/v1/tracks/L5WaY/stream?app_name=XFiveLive"));
+        ok("audius empty list", AudiusSearch.parse("{\"data\":[]}").isEmpty());
+        boolean b1 = false;
+        boolean b2 = false;
         try {
-            OnlineSearch.parseSearch("<html>");
+            AudiusSearch.parse("<html>");
         } catch (IOException e) {
-            t1 = true;
+            b1 = true;
         }
-        boolean t2 = false;
         try {
-            OnlineSearch.parseSearch("{\"x\":1}");
+            AudiusSearch.parse("{\"x\":1}");
         } catch (IOException e) {
-            t2 = true;
+            b2 = true;
         }
-        ok("parse search bad json rejected", t1 && t2);
-
-        String mj = "{\"files\":["
-                + "{\"name\":\"cover.jpg\",\"format\":\"JPEG\",\"size\":\"1000\"},"
-                + "{\"name\":\"t1.flac\",\"format\":\"Flac\",\"size\":\"9999999\"},"
-                + "{\"name\":\"t1.mp3\",\"format\":\"VBR MP3\",\"size\":\"4000000\"},"
-                + "{\"name\":\"sub/t2.mp3\",\"format\":\"128Kbps MP3\",\"size\":\"3000000\"},"
-                + "{\"name\":\"t1.ogg\",\"format\":\"Ogg Vorbis\",\"size\":\"3500000\"},"
-                + "{\"name\":\"tiny.mp3\",\"size\":\"100\"},"
-                + "{\"name\":\"huge.mp3\",\"size\":\"999999999999\"},"
-                + "{\"name\":\"../evil.mp3\",\"size\":\"500000\"},"
-                + "{\"name\":\"nosize.mp3\"}]}";
-        List<OnlineSearch.Track> ts = OnlineSearch.pickTracks("id", mj, 200L * 1024 * 1024);
-        ok("pick prefers mp3 only", ts.size() == 3 && ts.stream().allMatch(t -> t.name().endsWith(".mp3")));
-        ok("pick drops tiny/huge/evil", ts.stream().noneMatch(t -> t.name().contains("tiny") || t.name().contains("huge") || t.name().contains("..")));
-        ok("pick url", ts.get(1).url().equals("https://archive.org/download/id/sub/t2.mp3"));
-        List<OnlineSearch.Track> og = OnlineSearch.pickTracks("id", "{\"files\":[{\"name\":\"a.ogg\",\"size\":\"900000\"},{\"name\":\"b.wav\",\"size\":\"900000\"}]}", 1L << 30);
-        ok("pick falls back to ogg", og.size() == 1 && og.get(0).name().equals("a.ogg"));
-        StringBuilder many = new StringBuilder("{\"files\":[");
-        for (int i = 0; i < 40; i++) {
-            many.append(i > 0 ? "," : "").append("{\"name\":\"t").append(i).append(".mp3\",\"size\":\"900000\"}");
-        }
-        many.append("]}");
-        ok("pick capped", OnlineSearch.pickTracks("id", many.toString(), 1L << 30).size() == OnlineSearch.MAX_TRACKS);
-        ok("pick none", OnlineSearch.pickTracks("id", "{\"files\":[{\"name\":\"a.jpg\"}]}", 1L << 30).isEmpty());
-
-        List<OnlineSearch.Track> meta = OnlineSearch.pickTracks("id", "{\"files\":[{\"name\":\"01 - Hello_World.mp3\",\"size\":\"900000\"},"
-                + "{\"name\":\"x/02. Second Song.mp3\",\"size\":\"900000\",\"title\":\"Real Title\",\"artist\":\"Real Artist\"}]}", 1L << 30);
-        ok("track title from file name", "Hello World".equals(meta.get(0).displayTitle()));
-        ok("track title strips number + folder", meta.get(1).displayTitle().equals("Real Title"));
-        ok("track artist from metadata", "Real Artist".equals(meta.get(1).artist()) && meta.get(0).artist() == null);
-        OnlineSearch.Track nt = new OnlineSearch.Track("d/03 Song Name.ogg", "u", 1, "Ogg", null, null);
-        ok("track title strips number", "Song Name".equals(nt.displayTitle()));
-
-        com.xfive.live.lyrics.LyricStyle.class.getName();
-        ok("karaoke chars", com.xfive.live.lyrics.LyricStyle.karaokeChars(10, 0.5f) == 5f
-                && com.xfive.live.lyrics.LyricStyle.karaokeChars(10, 2f) == 10f
-                && com.xfive.live.lyrics.LyricStyle.karaokeChars(10, -1f) == 0f
-                && com.xfive.live.lyrics.LyricStyle.karaokeChars(-3, 0.5f) == 0f);
+        ok("audius bad answers rejected", b1 && b2);
     }
 
     // ---------------------------------------------------------------
@@ -224,6 +190,10 @@ final class DownloadTests {
         AtomicInteger flaky = new AtomicInteger();
         AtomicInteger slowStopped = new AtomicInteger();
         HttpServer s = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        s.createContext("/v1/tracks/ok/stream", ex -> {
+            ex.getResponseHeaders().add("Location", "/ok.mp3");
+            send(ex, 302, null, new byte[0]);
+        });
         s.createContext("/ok.mp3", ex -> send(ex, 200, "audio/mpeg", mp3(20_000)));
         s.createContext("/redir", ex -> {
             ex.getResponseHeaders().add("Location", "/ok.mp3");
@@ -397,16 +367,18 @@ final class DownloadTests {
             List<DownloadJob> savedHere = new CopyOnWriteArrayList<>();
             DownloadManager dm3 = new DownloadManager(() -> dir, () -> cache, 1_000_000, 2, 1, 50, savedHere::add, ready::add);
             try {
-                OnlineSearch.Track tr = new OnlineSearch.Track("t.mp3", base + "/ok.mp3", 20_000, "VBR MP3", "Nice Song", null);
-                DownloadJob pj = dm3.enqueueTrack(tr, "Cool Artist", true);
+                AudiusSearch.host = base;
+                AudiusSearch.Song song = new AudiusSearch.Song("ok", "Nice Song", "Cool Artist", "https://x/m.jpg", "https://x/s.jpg", 200, true);
+                DownloadJob pj = dm3.enqueueSong(song, true);
                 waitFor(pj, 5000);
                 Thread.sleep(100);
                 ok("play: done + callback", pj.state == DownloadJob.State.DONE && ready.contains(pj) && savedHere.isEmpty());
                 ok("play: file is in cache, not library", pj.result != null && pj.result.getParent().equals(cache)
                         && pj.result.getFileName().toString().equals("Cool Artist - Nice Song.mp3"));
-                ok("play: metadata carried", "Cool Artist".equals(pj.artist) && "Nice Song".equals(pj.songTitle));
+                ok("play: metadata carried", "Cool Artist".equals(pj.artist) && "Nice Song".equals(pj.songTitle)
+                        && "https://x/m.jpg".equals(pj.artUrl));
                 int hitsBefore = ready.size();
-                DownloadJob pj2 = dm3.enqueueTrack(tr, "Cool Artist", true);
+                DownloadJob pj2 = dm3.enqueueSong(song, true);
                 ok("play again uses cache instantly", pj2.state == DownloadJob.State.DONE && ready.size() == hitsBefore + 1
                         && pj2.result.equals(pj.result));
                 long cacheFiles;
@@ -415,14 +387,17 @@ final class DownloadTests {
                 }
                 ok("play again does not duplicate file", cacheFiles == 1);
 
-                DownloadJob gj = dm3.enqueueTrack(tr, "Cool Artist", false);
+                DownloadJob gj = dm3.enqueueSong(song, false);
                 waitFor(gj, 5000);
                 Thread.sleep(100);
                 ok("get: saved to library with artist - title name", gj.state == DownloadJob.State.DONE
                         && gj.result.getParent().equals(dir) && gj.result.getFileName().toString().startsWith("Cool Artist - Nice Song")
                         && savedHere.contains(gj));
                 ok("get: only the clicked song", Files.list(dir).filter(p -> p.getFileName().toString().startsWith("Cool Artist")).count() == 1);
+                AudiusSearch.Song locked = new AudiusSearch.Song("ok", "Locked", "Someone", "", "", 100, false);
+                ok("get: refused when artist does not allow downloads", dm3.enqueueSong(locked, false) == null);
             } finally {
+                AudiusSearch.host = "https://api.audius.co";
                 dm3.shutdown();
             }
 

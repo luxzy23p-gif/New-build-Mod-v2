@@ -34,8 +34,6 @@ public final class DynamicIslandHud {
     private static long hideAt = 0L;
     private static float t = 0f;          // kemajuan buka/tutup 0..1 (linear terhadap waktu)
     private static long lastRenderNs = 0L;
-    private static long lastBottomNs = 0L;
-    private static int lastBottom = -1;      // tepi bawah pop-up yang sedang tampil (-1 = tidak tampil)
 
     private DynamicIslandHud() {
     }
@@ -48,17 +46,6 @@ public final class DynamicIslandHud {
             return GlassPanelRenderer.accent(c.theme);
         }
         return COLORS[i];
-    }
-
-    /**
-     * Tepi bawah Dynamic Island yang sedang terlihat (ikut animasi buka/tutup), atau -1 jika sedang tidak tampil.
-     * Dipakai lirik karaoke agar menempel tepat di bawah bar.
-     */
-    public static int visibleBottom() {
-        if (System.nanoTime() - lastBottomNs > 250_000_000L) {
-            return -1; // pop-up tidak digambar belakangan ini
-        }
-        return lastBottom;
     }
 
     /** Kotak penuh Dynamic Island: {x, y, lebar, tinggi}. Nilai posisi -1 berarti tengah atas layar. */
@@ -119,7 +106,6 @@ public final class DynamicIslandHud {
             t = Math.max(0f, t - dt / CLOSE_SECONDS);
         }
         if (t <= 0.001f) {
-            lastBottom = -1;
             return;
         }
 
@@ -145,7 +131,6 @@ public final class DynamicIslandHud {
 
         int[] b = box();
         if (b[2] <= 0 || b[3] <= 0) {
-            lastBottom = -1;
             return;
         }
         int capW = Math.max(44, Math.min(76, b[2] / 2));
@@ -157,9 +142,6 @@ public final class DynamicIslandHud {
         // Offset mengikuti kurva tinggi agar gerakan tetap kontinu dan tidak meloncat.
         int y = b[1] - (opening ? 0 : Math.round((1f - eh) * 12f));
         float alpha = clamp01(t / 0.12f) * c.hudOpacity * Math.max(0.35f, c.customTransparency);
-
-        lastBottom = y + h;
-        lastBottomNs = System.nanoTime();
 
         String title;
         String sub;
@@ -209,17 +191,22 @@ public final class DynamicIslandHud {
         float ca = alpha * content;
         int dy = Math.round((1f - content) * 5f);
 
-        // sampul: kotak membulat berwarna dengan piringan
+        // sampul: foto album (lagu online) atau kotak membulat berwarna dengan piringan
         int art = u(38, s);
         int ax = x + u(10, s);
         int ay = y + u(10, s) + dy;
-        Glass.roundRect(g, ax, ay, art, art, u(9, s), Glass.argb(accent, 0.95f * ca), Glass.argb(accent, 0.55f * ca));
-        Glass.border(g, ax, ay, art, art, u(9, s), Glass.argb(0xFFFFFF, 0.5f * ca), Glass.argb(0xFFFFFF, 0.1f * ca));
-        int acx = ax + art / 2;
-        int acy = ay + art / 2;
-        Glass.disc(g, acx, acy, Math.round(art * 0.36f), Glass.argb(0xFFFFFF, 0.30f * ca));
-        Glass.disc(g, acx, acy, Math.round(art * 0.24f), Glass.argb(accent, 0.9f * ca));
-        Glass.disc(g, acx, acy, Math.round(art * 0.10f), Glass.argb(0xFFFFFF, 0.8f * ca));
+        com.xfive.live.render.Artwork.Tex photo = ca > 0.6f ? com.xfive.live.render.Artwork.forCurrent() : null;
+        if (photo != null) {
+            com.xfive.live.render.Artwork.draw(g, photo, ax, ay, art);
+        } else {
+            Glass.roundRect(g, ax, ay, art, art, u(9, s), Glass.argb(accent, 0.95f * ca), Glass.argb(accent, 0.55f * ca));
+            Glass.border(g, ax, ay, art, art, u(9, s), Glass.argb(0xFFFFFF, 0.5f * ca), Glass.argb(0xFFFFFF, 0.1f * ca));
+            int acx = ax + art / 2;
+            int acy = ay + art / 2;
+            Glass.disc(g, acx, acy, Math.round(art * 0.36f), Glass.argb(0xFFFFFF, 0.30f * ca));
+            Glass.disc(g, acx, acy, Math.round(art * 0.24f), Glass.argb(accent, 0.9f * ca));
+            Glass.disc(g, acx, acy, Math.round(art * 0.10f), Glass.argb(0xFFFFFF, 0.8f * ca));
+        }
 
         int tx = ax + art + u(10, s);
         int maxW = x + w - u(38, s) - tx;

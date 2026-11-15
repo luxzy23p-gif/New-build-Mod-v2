@@ -37,6 +37,7 @@ public final class XFiveTests {
         testLrclib();
         testLyricStyle(work.resolve("lyricstyle"));
         testSpecSheet();
+        testDeviceInfo();
         new DownloadTests(XFiveTests::check).run(work.resolve("download"));
         System.out.println("passed=" + passed + " failed=" + failed);
         if (failed > 0) {
@@ -239,14 +240,13 @@ public final class XFiveTests {
         XFiveConfig a = new XFiveConfig(dir);
         a.lyricsAnim = "pop";
         a.lyricsKaraoke = false;
-        a.karaokeMode = true;
         a.lyricsPreview = false;
         a.lyricsOffsetMs = -250;
         a.save();
         XFiveConfig b = new XFiveConfig(dir);
         b.load();
         check("config lyric anim saved", b.lyricsAnim.equals("pop") && !b.lyricsKaraoke && !b.lyricsPreview
-                && b.lyricsOffsetMs == -250 && b.karaokeMode && !new XFiveConfig(dir.resolve("nope")).karaokeMode);
+                && b.lyricsOffsetMs == -250);
         Files.writeString(dir.resolve(XFiveConfig.FILE_NAME), "lyrics.anim=zzz\nlyrics.offsetMs=99999\n");
         XFiveConfig c = new XFiveConfig(dir);
         c.load();
@@ -284,5 +284,64 @@ public final class XFiveTests {
         check("spec value none then all", com.xfive.live.config.SpecSheet.valueChars(10, 0, 0) == 0
                 && com.xfive.live.config.SpecSheet.valueChars(10, 0, 9) == 10);
         check("spec total after heading", com.xfive.live.config.SpecSheet.total() > 1.5);
+    }
+
+    static void testDeviceInfo() {
+        var DI = com.xfive.live.config.DeviceInfo.class;
+        String gp = "[ro.product.brand]: [INFINIX]\n[ro.product.marketing_name]: [Infinix GT 30 Pro]\n"
+                + "[ro.product.model]: [X6877]\n[ro.soc.model]: [MT6897]\n[ro.soc.manufacturer]: [Mediatek]\n"
+                + "[ro.build.version.release]: [16]\n[ro.hardware.egl]: [mali]\nnoise line\n[empty.key]: []\n";
+        var props = com.xfive.live.config.DeviceInfo.parseGetprop(gp);
+        check("getprop parsed", props.size() == 8 && "X6877".equals(props.get("ro.product.model")) && "".equals(props.get("empty.key")));
+        check("build.prop parsed", com.xfive.live.config.DeviceInfo.parseBuildProp("# c\nro.a=1\n\nro.b = two \nbad").size() == 2);
+        check("meminfo parsed", com.xfive.live.config.DeviceInfo.parseMemTotalKb("MemTotal:        7742172 kB\nMemFree: 1 kB") == 7742172L
+                && com.xfive.live.config.DeviceInfo.parseMemTotalKb("nothing") == 0L);
+        check("ram label rounds up", "8 GB".equals(com.xfive.live.config.DeviceInfo.ramLabel(7_742_172L))
+                && "6 GB".equals(com.xfive.live.config.DeviceInfo.ramLabel(5_700_000L))
+                && "12 GB".equals(com.xfive.live.config.DeviceInfo.ramLabel(11_600_000L))
+                && "4 GB".equals(com.xfive.live.config.DeviceInfo.ramLabel(3_900_000L))
+                && "?".equals(com.xfive.live.config.DeviceInfo.ramLabel(0)));
+        check("rom label rounds up", "256 GB".equals(com.xfive.live.config.DeviceInfo.romLabel(240_000_000_000L))
+                && "128 GB".equals(com.xfive.live.config.DeviceInfo.romLabel(113_000_000_000L))
+                && "1 TB".equals(com.xfive.live.config.DeviceInfo.romLabel(900_000_000_000L))
+                && "?".equals(com.xfive.live.config.DeviceInfo.romLabel(-1)));
+        check("gpu from renderer", "Mali-G615 MC6".equals(com.xfive.live.config.DeviceInfo.gpuFromRenderer("Mali-G615 MC6"))
+                && "Mali-G615 MC6".equals(com.xfive.live.config.DeviceInfo.gpuFromRenderer("Zink Vulkan 1.3 (Mali-G615 MC6)"))
+                && "Adreno (TM) 740".equals(com.xfive.live.config.DeviceInfo.gpuFromRenderer("Adreno (TM) 740"))
+                && com.xfive.live.config.DeviceInfo.gpuFromRenderer("llvmpipe (LLVM 15)") == null
+                && com.xfive.live.config.DeviceInfo.gpuFromRenderer(null) == null);
+        var r = com.xfive.live.config.DeviceInfo.build(props, 7_742_172L, 240_000_000_000L, "", "Linux", "6.1", "aarch64", 8);
+        check("android build", r.android() && r.rows().length == 4 && "Infinix GT 30 Pro".equals(r.title()));
+        check("android rows", "Chipset".equals(r.rows()[0][0]) && "Dimensity 8350 Ultimate".equals(r.rows()[0][1])
+                && "8 GB / 256 GB".equals(r.rows()[1][1]) && "Mali".equals(r.rows()[2][1]) && "XOS 16".equals(r.rows()[3][1]));
+        var r2 = com.xfive.live.config.DeviceInfo.build(props, 7_742_172L, 240_000_000_000L, "Mali-G615 MC6", "Linux", "6.1", "aarch64", 8);
+        check("gpu prefers opengl name", "Mali-G615 MC6".equals(r2.rows()[2][1]));
+        var other = new java.util.HashMap<String, String>();
+        other.put("ro.product.brand", "samsung");
+        other.put("ro.product.model", "SM-S928B");
+        other.put("ro.soc.model", "SM8650");
+        other.put("ro.build.version.release", "15");
+        other.put("ro.hardware.egl", "adreno");
+        var r3 = com.xfive.live.config.DeviceInfo.build(other, 11_900_000L, 480_000_000_000L, "", "Linux", "", "aarch64", 8);
+        check("other android phone", "Samsung SM-S928B".equals(r3.title()) && "Snapdragon 8 Gen 3".equals(r3.rows()[0][1])
+                && "12 GB / 512 GB".equals(r3.rows()[1][1]) && "Adreno".equals(r3.rows()[2][1]) && "Android 15".equals(r3.rows()[3][1]));
+        var unknown = new java.util.HashMap<String, String>();
+        unknown.put("ro.product.model", "Foo");
+        unknown.put("ro.soc.model", "mt6999");
+        var r4 = com.xfive.live.config.DeviceInfo.build(unknown, 0, 0, "", "Linux", "", "aarch64", 8);
+        check("unknown parts say so", "MediaTek MT6999".equals(r4.rows()[0][1]) && "Unknown".equals(r4.rows()[2][1])
+                && "Unknown".equals(r4.rows()[3][1]) && r4.rows()[1][1].equals("? / ?"));
+        var pc = com.xfive.live.config.DeviceInfo.build(java.util.Map.of(), 16_000_000L, 500_000_000_000L,
+                "NVIDIA GeForce RTX 3060/PCIe/SSE2", "Windows 11", "10.0", "amd64", 12);
+        check("pc build", !pc.android() && "CPU".equals(pc.rows()[0][0]) && pc.rows()[0][1].contains("12 cores")
+                && "16 GB / 512 GB".equals(pc.rows()[1][1]) && pc.rows()[2][1].startsWith("GeForce RTX 3060")
+                && pc.rows()[3][1].equals("Windows 11 10.0"));
+        com.xfive.live.config.SpecSheet.use("Dev", r.rows());
+        check("spec sheet uses detected", "Dev".equals(com.xfive.live.config.SpecSheet.title())
+                && com.xfive.live.config.SpecSheet.rows() == r.rows());
+        com.xfive.live.config.SpecSheet.use("Bad", new String[][] {{"a", "b"}});
+        check("spec sheet rejects wrong row count", com.xfive.live.config.SpecSheet.title().equals(com.xfive.live.config.SpecSheet.TITLE));
+        com.xfive.live.config.SpecSheet.usePreset();
+        check("device detect is null before start", com.xfive.live.config.DeviceInfo.detected() == null);
     }
 }

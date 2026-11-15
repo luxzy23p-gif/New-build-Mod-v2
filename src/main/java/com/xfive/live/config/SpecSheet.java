@@ -13,6 +13,33 @@ public final class SpecSheet {
             {"OS", "XOS 16"}
     };
 
+    private static volatile String curTitle = TITLE;
+    private static volatile String[][] curRows = ROWS;
+
+    /** Judul yang sedang ditampilkan (preset atau hasil deteksi perangkat). */
+    public static String title() {
+        return curTitle;
+    }
+
+    public static String[][] rows() {
+        return curRows;
+    }
+
+    /** Memakai isi lain (hasil deteksi). Harus 4 baris. */
+    public static void use(String title, String[][] rows) {
+        if (title == null || title.isBlank() || rows == null || rows.length != ROWS.length) {
+            usePreset();
+            return;
+        }
+        curTitle = title;
+        curRows = rows;
+    }
+
+    public static void usePreset() {
+        curTitle = TITLE;
+        curRows = ROWS;
+    }
+
     private static final String GLYPHS = "01#%&@$ABCDEFGHKLMNRSTXYZ<>/=+";
     public static final double HEADING_START = 0.75;
     public static final double HEADING_PER_CHAR = 0.045;
@@ -81,7 +108,7 @@ public final class SpecSheet {
 
     /** Detik saat seluruh judul sudah jadi. */
     public static double headingDone() {
-        return HEADING_START + (TITLE.length() - 1) * HEADING_PER_CHAR + HEADING_SETTLE;
+        return HEADING_START + (curTitle.length() - 1) * HEADING_PER_CHAR + HEADING_SETTLE;
     }
 
     /** Huruf acak untuk efek glitch, tergantung seed. */
@@ -107,6 +134,6 @@ public final class SpecSheet {
 
     /** Detik saat seluruh animasi masuk selesai. */
     public static double total() {
-        return ROW_START + (ROWS.length - 1) * ROW_STEP + 0.15 + 0.6;
+        return ROW_START + (curRows.length - 1) * ROW_STEP + 0.15 + 0.6;
     }
 }

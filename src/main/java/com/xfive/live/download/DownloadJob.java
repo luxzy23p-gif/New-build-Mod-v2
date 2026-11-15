@@ -18,6 +18,8 @@ public final class DownloadJob {
     public volatile boolean nameFromTitle;
     public volatile String artist = "";
     public volatile String songTitle = "";
+    /** Alamat gambar sampul (boleh kosong). */
+    public volatile String artUrl = "";
 
     public volatile State state = State.QUEUED;
     public volatile String message = "Waiting...";

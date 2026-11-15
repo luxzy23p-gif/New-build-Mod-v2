@@ -8,13 +8,42 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
 /** Permintaan HTTP sederhana: pengalihan diikuti manual (maks 6), hanya http/https, ada batas waktu. */
-final class Http {
+public final class Http {
     static final String UA = "XFiveLive/1.1 (Minecraft mod; music player)";
     static final int CONNECT_MS = 15_000;
     static final int READ_MS = 20_000;
     private static final int MAX_HOPS = 6;
 
     private Http() {
+    }
+
+    /** Mengambil isi (misalnya gambar sampul) dengan batas ukuran. */
+    public static byte[] getBytes(String url, int maxBytes) throws IOException {
+        HttpURLConnection c = open(url);
+        try {
+            int code = c.getResponseCode();
+            if (code != 200) {
+                throw new DownloadException("Server answered HTTP " + code, code >= 500 || code == 429);
+            }
+            long len = c.getContentLengthLong();
+            if (len > maxBytes) {
+                throw new DownloadException("Answer too large", false);
+            }
+            try (InputStream in = c.getInputStream()) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    out.write(buf, 0, n);
+                    if (out.size() > maxBytes) {
+                        throw new DownloadException("Answer too large", false);
+                    }
+                }
+                return out.toByteArray();
+            }
+        } finally {
+            c.disconnect();
+        }
     }
 
     /** Membuka koneksi yang sudah mendapat respons akhir (bukan pengalihan). Pemanggil wajib disconnect(). */
@@ -59,7 +88,7 @@ final class Http {
     }
 
     /** Mengambil teks (UTF-8) dengan batas ukuran. */
-    static String getText(String url, int maxBytes) throws IOException {
+    public static String getText(String url, int maxBytes) throws IOException {
         HttpURLConnection c = open(url);
         try {
             int code = c.getResponseCode();

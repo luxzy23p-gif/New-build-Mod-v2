@@ -102,24 +102,25 @@ Catatan: cara paling mudah dan paling pasti adalah menyalin lagu langsung ke fol
 
 Di menu samping ada halaman **Specs**: spesifikasi HP (Infinix GT30 Pro, Dimensity 8350 Ultimate, RAM 8 GB / ROM 256 GB, GPU Mali, XOS 16) dengan animasi: HP bergaris tergambar, chip membal, judul berganti huruf acak, lalu baris spesifikasi diketik satu per satu. Ketuk halamannya untuk memutar ulang animasi.
 
-## Halaman Download (unduh / putar lagu online)
+## Halaman Download (cari, putar, dan simpan lagu online)
 
-Menu samping → **Download**. Perlu internet. Ada tiga tombol: **Paste**, **Play**, **Go**.
+Menu samping → **Download**. Perlu internet. Ada kolom isian dan tiga tombol: **Paste**, **Play**, **Go**.
 
-**Cara 1 - tempel link langsung**
+**Cari lagu (cara termudah)**
+1. Ketik judul lagu atau nama artis, ketuk **Go**.
+2. Muncul daftar lagu, tiap baris punya **foto album**, judul, artis, dan lama lagu.
+3. Ketuk **Play** untuk langsung mendengarkan. Foto album juga tampil di pemutar, Dynamic Island, dan menu.
+4. Tombol **Get** (simpan ke Library) hanya muncul pada lagu yang **pengunggahnya mengizinkan unduhan**. Lagu tanpa tombol Get hanya bisa diputar.
+
+Sumber pencarian: Audius (platform musik terbuka). Tidak semua lagu ada di sana, jadi sebagian pencarian bisa kosong atau hasilnya bukan lagu yang dicari. Lagu terkenal dari Spotify/YouTube sering tidak ada.
+
+**Tempel link langsung**
 1. Salin link file lagu (berakhiran .mp3, .m4a, .ogg atau .wav, atau link yang langsung memberi file lagu).
-2. Ketuk **Paste** (atau ketik link).
-3. Ketuk **Go** untuk **menyimpan** ke Library, atau **Play** untuk **langsung mendengarkan** tanpa menyimpan.
-
-**Cara 2 - cari musik gratis**
-1. Ketik nama lagu/artis (bukan link), ketuk **Go**.
-2. Hasil dari Internet Archive muncul. Ketuk **Open** pada satu hasil untuk melihat daftar lagunya.
-3. Di daftar lagu, tiap lagu punya dua tombol: **Play** (dengar langsung) dan **Get** (simpan). Hanya lagu yang Anda ketuk yang diproses, tidak satu album sekaligus.
-4. Tombol **< Back to results** kembali ke hasil pencarian.
+2. Ketuk **Paste**, lalu **Go** (simpan ke Library) atau **Play** (dengarkan saja).
 
 **Play online**
-- Lagu diunduh dulu ke folder sementara `xfive-cache` (biasanya beberapa detik), lalu otomatis diputar. Lagu itu **tidak masuk Library** dan folder sementara dikosongkan setiap game dibuka. Ini bukan streaming sungguhan: lagu harus selesai dimuat dulu.
-- Next/Previous setelah itu kembali ke lagu di Library. Untuk menambah ke Favorites, simpan dulu dengan **Get**.
+- Lagu dimuat dulu ke folder sementara `xfive-cache` (biasanya beberapa detik), lalu otomatis diputar. Lagu itu **tidak masuk Library**; folder sementara dikosongkan setiap game dibuka. Ini bukan streaming sungguhan: lagu harus selesai dimuat dulu.
+- Next/Previous setelah itu kembali ke lagu di Library. Untuk menambah ke Favorites, simpan dulu (jika ada tombol Get).
 
 **Setelah Get selesai**
 - Lagu otomatis masuk folder musik dan muncul di **Library** tanpa restart. Unduhan jalan di latar belakang walau menu ditutup.
@@ -132,11 +133,11 @@ Menu samping → **Download**. Perlu internet. Ada tiga tombol: **Paste**, **Pla
 - Link YouTube, Spotify, TikTok, SoundCloud dan sejenisnya tidak bisa (dilindungi); mod memberi tahu kalau dicoba.
 - Unduh hanya lagu yang boleh Anda simpan (gratis/berlisensi/milik sendiri).
 
-## Mode Karaoke (lirik di bawah Dynamic Bar)
+## Spesifikasi perangkat otomatis
 
-Menu → **Custom HUD** → nyalakan **Karaoke mode (under bar)**.
-- Saat lagu berlirik diputar, panel lirik muncul **tepat di bawah Dynamic Bar** dan ikut naik-turun mengikuti animasi bar.
-- Baris yang sedang dinyanyikan lebih besar dan menyala **huruf demi huruf** mengikuti lagu, dengan garis progres tipis di bawahnya dan baris berikutnya di bawah itu. Saat jeda instrumental muncul tiga titik.
-- Mode ini menggantikan HUD lirik biasa selagi aktif. Warna sorot mengikuti pengaturan warna sorot lirik. Lirik harus tersedia (file .lrc atau terunduh otomatis).
+Halaman **Specs** kini membaca spesifikasi HP/perangkat yang sedang dipakai (nama perangkat, chipset, RAM / penyimpanan, GPU, sistem). Matikan lewat Settings → **Specs: read my device** untuk kembali ke preset Infinix GT30 Pro.
+- RAM dan penyimpanan dibulatkan ke ukuran yang dijual (misalnya terbaca 7,4 GB → "8 GB").
+- Bagian yang tidak bisa dibaca ditulis **Unknown**, tidak ditebak. Kode chipset MediaTek yang belum dikenal ditulis apa adanya (misalnya "MediaTek MT6999"); khusus Infinix GT30 Pro dipakai nama resmi "Dimensity 8350 Ultimate".
+- Belum dicoba di HP: cara pembacaannya bergantung pada izin Android di Zalith. Kalau gagal, halaman otomatis memakai preset.
 
 Catatan jujur: semua ini sudah dites bagian logikanya di komputer dan terbukti terkompilasi di GitHub, tapi tampilannya belum dicoba langsung di HP.

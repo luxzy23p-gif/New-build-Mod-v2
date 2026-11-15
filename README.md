@@ -11,13 +11,13 @@ Tes ada di `tests/com/xfive/live/tests/XFiveTests.java` dan hanya memakai kode t
 - **Playlist**: pindai folder sekali (bukan per frame), baca "Artis - Judul" dari nama file, next/previous dengan wrap-around.
 - **Config**: simpan dan muat `config/xfive-live.properties`, nilai di luar batas dikunci, nilai rusak kembali ke default.
 
-## Download lagu online (baru)
+## Download dan Play lagu online
 
-- Halaman **Download** di Control Center: tempel link langsung (.mp3/.m4a/.ogg/.wav) atau cari musik gratis di Internet Archive, unduh dengan bar progres, batal/coba lagi, lalu otomatis masuk Library.
-- Kode murni (tanpa Minecraft) ada di `src/main/java/com/xfive/live/download/` dan dites di `tests/.../DownloadTests.java` memakai server HTTP palsu: sukses, redirect, loop redirect, halaman HTML, file palsu, 404, 503 lalu berhasil, putus di tengah, batas ukuran, batal, folder tidak bisa ditulis.
-- Hasil pencarian dibuka dulu menjadi daftar lagu; **Get** menyimpan satu lagu ke Library, **Play** memutar satu lagu dari folder cache sementara (bukan streaming sungguhan, lagu dimuat penuh dulu).
-- **Mode Karaoke** (Custom HUD): panel lirik besar dengan sorot per huruf tepat di bawah Dynamic Bar.
-- YouTube/Spotify sengaja tidak didukung (dilindungi). Halaman menu Download baru terkompilasi di CI; belum dicoba di HP.
+- Halaman **Download** di Control Center: cari lagu (sumber Audius) dalam satu daftar dengan foto album; **Play** memutar dari folder cache sementara (bukan streaming sungguhan), **Get** menyimpan ke Library hanya jika pengunggah mengizinkan unduhan. Tempel link file lagu langsung juga bisa.
+- Foto album tampil di pemutar, Dynamic Island, dan menu untuk lagu online (`render/Artwork.java`, tekstur dimuat di thread game).
+- Kode murni (tanpa Minecraft) ada di `src/main/java/com/xfive/live/download/` dan dites dengan server HTTP palsu (sukses, redirect, HTML, file palsu, 404, 503 lalu berhasil, putus di tengah, batas ukuran, batal, folder tidak bisa ditulis, cache).
+- YouTube/Spotify sengaja tidak didukung (dilindungi). Tampilannya baru terkompilasi di CI; belum dicoba di HP.
+- Halaman **Specs** membaca spesifikasi perangkat sendiri (`config/DeviceInfo.java`, dites dengan data contoh); kalau gagal memakai preset.
 
 ## UI Control Center 1.1.0
 
