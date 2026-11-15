@@ -11,6 +11,12 @@ Tes ada di `tests/com/xfive/live/tests/XFiveTests.java` dan hanya memakai kode t
 - **Playlist**: pindai folder sekali (bukan per frame), baca "Artis - Judul" dari nama file, next/previous dengan wrap-around.
 - **Config**: simpan dan muat `config/xfive-live.properties`, nilai di luar batas dikunci, nilai rusak kembali ke default.
 
+## Download lagu online (baru)
+
+- Halaman **Download** di Control Center: tempel link langsung (.mp3/.m4a/.ogg/.wav) atau cari musik gratis di Internet Archive, unduh dengan bar progres, batal/coba lagi, lalu otomatis masuk Library.
+- Kode murni (tanpa Minecraft) ada di `src/main/java/com/xfive/live/download/` dan dites di `tests/.../DownloadTests.java` memakai server HTTP palsu: sukses, redirect, loop redirect, halaman HTML, file palsu, 404, 503 lalu berhasil, putus di tengah, batas ukuran, batal, folder tidak bisa ditulis.
+- YouTube/Spotify sengaja tidak didukung (dilindungi). Halaman menu Download baru terkompilasi di CI; belum dicoba di HP.
+
 ## UI Control Center 1.1.0
 
 - Dua skin UI kini dapat dipilih pada Appearance: **Liquid Glass Lite** dan **Dark Music**. Pilihan disimpan sebagai `appearance.style` dan tidak menghapus pilihan warna aksen.

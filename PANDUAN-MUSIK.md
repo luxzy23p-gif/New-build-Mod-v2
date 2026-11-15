@@ -94,10 +94,36 @@ Catatan: cara paling mudah dan paling pasti adalah menyalin lagu langsung ke fol
 
 ## Batasan saat ini
 
-- Tidak ada koneksi ke Spotify atau YouTube. Musik hanya berasal dari file di HP.
+- Tidak ada koneksi ke Spotify atau YouTube (dilindungi, sengaja tidak didukung). Musik berasal dari file di HP atau dari halaman Download (link langsung / pencarian Internet Archive).
 - HUD di dalam game tidak bisa diklik (kursor terkunci). Tekan F6 untuk membuka Control Center dan mengendalikan musik.
 - Pemutaran di Android belum diuji langsung di perangkat. Kalau tidak berbunyi, kirim status yang muncul di menu.
 
 ## Halaman Specs
 
 Di menu samping ada halaman **Specs**: spesifikasi HP (Infinix GT30 Pro, Dimensity 8350 Ultimate, RAM 8 GB / ROM 256 GB, GPU Mali, XOS 16) dengan animasi: HP bergaris tergambar, chip membal, judul berganti huruf acak, lalu baris spesifikasi diketik satu per satu. Ketuk halamannya untuk memutar ulang animasi.
+
+## Halaman Download (unduh lagu online)
+
+Menu samping → **Download**. Perlu internet.
+
+**Cara 1 - tempel link langsung**
+1. Salin link file lagu (harus berakhiran .mp3, .m4a, .ogg atau .wav, atau link yang langsung memberi file lagu).
+2. Di halaman Download ketuk **Paste** (atau ketik link), lalu ketuk **Go**.
+3. Muncul baris dengan bar progres. Ketuk baris itu untuk **Cancel** (saat jalan), **Retry** (kalau gagal) atau **Remove** (kalau selesai).
+
+**Cara 2 - cari musik gratis**
+1. Ketik nama lagu/artis (bukan link), ketuk **Go**.
+2. Hasil dari Internet Archive (musik gratis/domain publik/rilis bebas) muncul. Ketuk satu hasil untuk mengunduh. Kalau satu hasil berisi banyak lagu (album), maksimal 12 lagu diambil.
+
+**Setelah selesai**
+- Lagu otomatis masuk **folder musik** dan muncul di **Library** (tanpa restart). Unduhan tetap jalan di latar belakang walau menu ditutup.
+- Lirik diunduh otomatis saat lagunya diputar (kalau "Auto-download lyrics" aktif di Settings).
+
+**Pengaman**
+- File ditulis dulu sebagai `.part`, baru diganti nama setelah lengkap. Kalau gagal/dibatalkan, file sementara dihapus.
+- Lagu yang sudah ada tidak pernah ditimpa (nama jadi `lagu (2).mp3`).
+- Halaman web yang menyamar jadi file lagu ditolak. Batas ukuran 200 MB per file. Coba ulang otomatis 2x kalau koneksi putus.
+- Link YouTube, Spotify, TikTok, SoundCloud dan sejenisnya tidak bisa diunduh (dilindungi) - mod memberi tahu kalau Anda mencobanya.
+- Unduh hanya lagu yang boleh Anda simpan (gratis/berlisensi/milik sendiri).
+
+Catatan jujur: fitur ini sudah dites dengan server palsu di komputer, tapi belum dicoba langsung di HP.

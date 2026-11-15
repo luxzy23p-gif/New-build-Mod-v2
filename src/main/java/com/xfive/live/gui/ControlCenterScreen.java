@@ -5,6 +5,10 @@ import com.xfive.live.config.Fonts;
 import com.xfive.live.config.Themes;
 import com.xfive.live.lyrics.LyricStyle;
 import com.xfive.live.config.XFiveConfig;
+import com.xfive.live.download.DownloadJob;
+import com.xfive.live.download.DownloadManager;
+import com.xfive.live.download.FileNames;
+import com.xfive.live.download.OnlineSearch;
 import com.xfive.live.hud.DynamicIslandHud;
 import com.xfive.live.music.PlaylistManager;
 import com.xfive.live.render.Glass;
@@ -16,6 +20,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +38,7 @@ import java.util.function.Supplier;
  */
 public final class ControlCenterScreen extends Screen {
     private enum Page {
-        LIBRARY("Library"), FAVORITES("Favorites"), HUD("Custom HUD"),
+        LIBRARY("Library"), FAVORITES("Favorites"), DOWNLOAD("Download"), HUD("Custom HUD"),
         CONTROLS("Player Controls"), APPEARANCE("Appearance"), SPECS("Specs"), SETTINGS("Settings");
 
         final String title;
@@ -54,6 +59,8 @@ public final class ControlCenterScreen extends Screen {
             "#########", ".........", "...###...", ".........", "#########", ".###.....", ".........", "#########"};
     private static final String[] IC_CHIP = {
             "..#.#.#..", ".#######.", "##.....##", ".#.###.#.", "##.###.##", ".#.###.#.", "##.....##", ".#######.", "..#.#.#.."};
+    private static final String[] IC_DOWN = {
+            "...###...", "...###...", "...###...", "#########", ".#######.", "..#####..", "...###...", "....#....", "#########"};
     private static final String[] IC_STAR = {
             "....#....", "#...#...#", ".#.###.#.", "..#####..", "#########", "..#####..", ".#.###.#.", "#...#...#", "....#...."};
     private static final String[] IC_GEAR = {
@@ -87,6 +94,10 @@ public final class ControlCenterScreen extends Screen {
     private EditBox songSearch;
     private EditBox sourceInput;
     private String pendingSource = "";
+    private EditBox downloadInput;
+    private String pendingLink = "";
+    private String dlNotice = "";
+    private int dlVersion = -1;
 
     private double songScroll;
     private double rowsScroll;
@@ -166,13 +177,13 @@ public final class ControlCenterScreen extends Screen {
 
     private int rowsX() { return cx0() + 10; }
     private int rowsR() { return px + pw - 10; }
-    private int rowsTop() { return contentTop() + 4; }
+    private int rowsTop() { return contentTop() + (page == Page.DOWNLOAD ? 30 : 4); }
     private int rowsBot() { return contentBot() - 4; }
 
     private int searchX() { return cx0() + 46; }
     private int searchW() { return Math.max(40, px + pw - 56 - searchX()); }
 
-    private int itemH() { return Math.max(15, Math.min(24, (ph - 48) / 7)); }
+    private int itemH() { return Math.max(15, Math.min(24, (ph - 48) / 8)); }
     private int[] navRect(int i) {
         return new int[] {px + 4, py + 34 + i * (itemH() + 2), sbW - 8, itemH()};
     }
@@ -184,6 +195,7 @@ public final class ControlCenterScreen extends Screen {
         Font f = GlassPanelRenderer.font();
         songSearch = null;
         sourceInput = null;
+        downloadInput = null;
         if (isMusicPage()) {
             songSearch = new EditBox(f, searchX() + 17, py + 8, searchW() - 22, 12, Component.literal("Search"));
             songSearch.setBordered(false);
@@ -208,6 +220,33 @@ public final class ControlCenterScreen extends Screen {
             sourceInput.setResponder(q -> pendingSource = q);
             addRenderableWidget(sourceInput);
         }
+        if (page == Page.DOWNLOAD) {
+            int[] pill = downloadPill();
+            downloadInput = new EditBox(f, pill[0] + 6, pill[1] + 3, pill[2] - 12, 12, Component.literal("Link"));
+            downloadInput.setBordered(false);
+            downloadInput.setTextColor(0xFFFFFFFF);
+            downloadInput.setMaxLength(600);
+            downloadInput.setHint(Component.literal("Paste a link or type a song name"));
+            downloadInput.setValue(pendingLink);
+            downloadInput.setResponder(q -> pendingLink = q);
+            addRenderableWidget(downloadInput);
+        }
+    }
+
+    /** Baris isian link/pencarian di halaman Download. */
+    private int[] downloadPill() {
+        int x = rowsX();
+        return new int[] {x, contentTop() + 4, Math.max(60, rowsR() - x - 40 - 32 - 8), 18};
+    }
+
+    private int[] pasteRect() {
+        int[] p = downloadPill();
+        return new int[] {p[0] + p[2] + 4, p[1], 40, 18};
+    }
+
+    private int[] goRect() {
+        int[] p = pasteRect();
+        return new int[] {p[0] + p[2] + 4, p[1], 32, 18};
     }
 
     /** Kotak isian path di sub-header pustaka: {x, y, w, h}. */
@@ -365,6 +404,7 @@ public final class ControlCenterScreen extends Screen {
         return switch (p) {
             case LIBRARY -> IC_LIBRARY;
             case FAVORITES -> IC_HEART;
+            case DOWNLOAD -> IC_DOWN;
             case HUD -> IC_HUD;
             case CONTROLS -> IC_CONTROLS;
             case APPEARANCE -> IC_STAR;
@@ -418,6 +458,18 @@ public final class ControlCenterScreen extends Screen {
         } else if (page == Page.SPECS) {
             drawSpecs(g, font, accent);
         } else {
+            if (page == Page.DOWNLOAD) {
+                int v = XFiveLiveClient.DOWNLOADS.version();
+                if (v != dlVersion) {
+                    refreshDownloadRows();
+                }
+                int[] pill = downloadPill();
+                Glass.roundRect(g, pill[0], pill[1], pill[2], pill[3], 6, a(0xFFFFFF, 0.07f));
+                int[] pr = pasteRect();
+                int[] gr = goRect();
+                drawPill(g, font, pr, "Paste", accent, in(mouseX, mouseY, pr), pressedKey.equals("paste"));
+                drawPill(g, font, gr, "Go", accent, in(mouseX, mouseY, gr), pressedKey.equals("go"));
+            }
             drawRows(g, font, accent, mouseX, mouseY, !anim);
         }
         if (slide != 0) {
@@ -794,6 +846,17 @@ public final class ControlCenterScreen extends Screen {
                     }
                 }
             }
+            case Row.ITEM -> {
+                int gw = 34;
+                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.label, r.w - gw - 24), ax + 8, ay + 5,
+                        0xFFFFFF);
+                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.sub, r.w - gw - 24), ax + 8, ay + 16,
+                        GlassPanelRenderer.MUTED);
+                Glass.roundRect(g, ax + r.w - gw - 6, ay + 5, gw, r.h - 10, 5, a(accent, hov ? 0.45f : 0.30f));
+                int tw = GlassPanelRenderer.width(font, "Get");
+                GlassPanelRenderer.text(g, font, "Get", ax + r.w - gw - 6 + (gw - tw) / 2, ay + (r.h - 9) / 2, 0xFFFFFF);
+            }
+            case Row.PROGRESS -> drawProgressRow(g, font, accent, r, ax, ay);
             case Row.SAMPLE -> {
                 int vw = r.w - 16;
                 GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, "Now Playing - Sample Song 0123", vw),
@@ -802,6 +865,56 @@ public final class ControlCenterScreen extends Screen {
                         ax + 8, ay + 19, GlassPanelRenderer.MUTED);
             }
             default -> {
+            }
+        }
+    }
+
+    private static String mb(long bytes) {
+        return String.format(Locale.ROOT, "%.1f MB", bytes / 1048576.0);
+    }
+
+    private static String dlStatus(DownloadJob j) {
+        if (j.state == DownloadJob.State.RUNNING && j.message.equals("Downloading")) {
+            float p = j.progress();
+            if (p >= 0) {
+                return "Downloading " + Math.round(p * 100) + "%  (" + mb(j.done) + " / " + mb(j.total) + ")";
+            }
+            return "Downloading " + mb(j.done);
+        }
+        if (j.state == DownloadJob.State.DONE) {
+            return "Saved to your music folder (" + mb(j.total) + ")";
+        }
+        return j.message;
+    }
+
+    private void drawProgressRow(GuiGraphicsExtractor g, Font font, int accent, Row r, int ax, int ay) {
+        DownloadJob j = r.job;
+        DownloadJob.State st = j.state;
+        int col = st == DownloadJob.State.DONE ? 0x3DDC97
+                : st == DownloadJob.State.FAILED ? 0xFF5C5C
+                : st == DownloadJob.State.CANCELLED ? 0x8A8F9A : accent;
+        String tag = st == DownloadJob.State.DONE ? "Remove"
+                : (st == DownloadJob.State.FAILED || st == DownloadJob.State.CANCELLED) ? "Retry" : "Cancel";
+        int tw = GlassPanelRenderer.width(font, tag);
+        GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, j.displayName(), r.w - tw - 24), ax + 8, ay + 4,
+                0xFFFFFF);
+        GlassPanelRenderer.text(g, font, tag, ax + r.w - 8 - tw, ay + 4, col);
+        GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, dlStatus(j), r.w - 16), ax + 8, ay + 15,
+                GlassPanelRenderer.MUTED);
+        int bx = ax + 8;
+        int by = ay + r.h - 7;
+        int bw = Math.max(10, r.w - 16);
+        g.fill(bx, by, bx + bw, by + 3, a(0xFFFFFF, 0.15f));
+        float p = st == DownloadJob.State.DONE ? 1f : j.progress();
+        if (p >= 0f && st != DownloadJob.State.FAILED && st != DownloadJob.State.CANCELLED) {
+            g.fill(bx, by, bx + Math.round(bw * p), by + 3, 0xFF000000 | col);
+        } else if (!j.finished()) {
+            int seg = Math.max(8, bw / 4);
+            int off = (int) ((System.nanoTime() / 6_000_000L) % (bw + seg)) - seg;
+            int x0 = Math.max(0, off);
+            int x1 = Math.min(bw, off + seg);
+            if (x1 > x0) {
+                g.fill(bx + x0, by, bx + x1, by + 3, 0xFF000000 | col);
             }
         }
     }
@@ -1164,6 +1277,8 @@ public final class ControlCenterScreen extends Screen {
         static final int SWATCHES = 4;
         static final int SAMPLE = 5;
         static final int NOTE = 6;
+        static final int ITEM = 7;
+        static final int PROGRESS = 8;
 
         final int kind;
         final String label;
@@ -1172,6 +1287,8 @@ public final class ControlCenterScreen extends Screen {
         Runnable action = () -> { };
         DoubleSupplier get = () -> 0;
         DoubleConsumer set = v -> { };
+        DownloadJob job;
+        String sub = "";
         boolean full;
         int h = 22;
         int x;
@@ -1188,6 +1305,14 @@ public final class ControlCenterScreen extends Screen {
             if (kind == NOTE) {
                 full = true;
                 h = 16;
+            }
+            if (kind == ITEM) {
+                full = true;
+                h = 28;
+            }
+            if (kind == PROGRESS) {
+                full = true;
+                h = 32;
             }
         }
     }
@@ -1267,6 +1392,140 @@ public final class ControlCenterScreen extends Screen {
         return r;
     }
 
+    private Row note(String text) {
+        return new Row(Row.NOTE, text);
+    }
+
+    private void buildDownloadRows(List<Row> out) {
+        DownloadManager dm = XFiveLiveClient.DOWNLOADS;
+        if (!dlNotice.isEmpty()) {
+            for (String line : dlNotice.split("\n")) {
+                out.add(note(line));
+            }
+        }
+        List<DownloadJob> jobs = dm.jobs();
+        boolean anyFinished = false;
+        for (int i = jobs.size() - 1; i >= 0; i--) {
+            DownloadJob j = jobs.get(i);
+            anyFinished |= j.finished();
+            Row r = new Row(Row.PROGRESS, j.title);
+            r.job = j;
+            r.action = () -> {
+                if (!j.finished()) {
+                    dm.cancel(j);
+                } else if (j.state == DownloadJob.State.DONE) {
+                    dm.remove(j);
+                } else {
+                    dm.retry(j);
+                }
+            };
+            out.add(r);
+        }
+        if (anyFinished) {
+            Row clear = new Row(Row.ACTION, "Clear finished");
+            clear.action = dm::clearFinished;
+            out.add(clear);
+        }
+        DownloadManager.SearchState ss = dm.searchState();
+        if (ss == DownloadManager.SearchState.SEARCHING || ss == DownloadManager.SearchState.ERROR
+                || (ss == DownloadManager.SearchState.DONE && !dm.searchMessage().isEmpty())) {
+            out.add(note(dm.searchMessage()));
+        }
+        List<OnlineSearch.Result> res = dm.results();
+        if (!res.isEmpty()) {
+            out.add(note("Results (Internet Archive) - tap to download"));
+            for (OnlineSearch.Result it : res) {
+                Row r = new Row(Row.ITEM, it.title());
+                r.sub = it.creator().isEmpty() ? "Internet Archive" : it.creator();
+                r.action = () -> {
+                    dm.enqueueItem(it);
+                    dlNotice = "Added: " + it.title();
+                    refreshDownloadRows();
+                };
+                out.add(r);
+            }
+        }
+        if (jobs.isEmpty() && res.isEmpty() && ss == DownloadManager.SearchState.IDLE) {
+            out.add(note("Paste a link to a song (.mp3 .m4a .ogg .wav)"));
+            out.add(note("or type a name to search free music."));
+            out.add(note("Songs go to your music folder, then Library."));
+            out.add(note("Lyrics are fetched when you play the song."));
+            out.add(note("YouTube/Spotify are protected: not supported."));
+        }
+    }
+
+    private void refreshDownloadRows() {
+        dlVersion = XFiveLiveClient.DOWNLOADS.version();
+        buildRows();
+        layoutRows();
+    }
+
+    private static boolean blockedHost(String url) {
+        try {
+            String h = java.net.URI.create(url.strip()).getHost();
+            if (h == null) {
+                return false;
+            }
+            h = h.toLowerCase(Locale.ROOT);
+            for (String b : new String[] {"youtube.com", "youtu.be", "spotify.com", "tiktok.com", "instagram.com",
+                    "facebook.com", "soundcloud.com", "deezer.com", "music.apple.com", "tidal.com"}) {
+                if (h.equals(b) || h.endsWith("." + b)) {
+                    return true;
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // link rusak, ditangani oleh pengunduh
+        }
+        return false;
+    }
+
+    private void startDownload() {
+        String raw = (downloadInput == null ? pendingLink : downloadInput.getValue()).strip();
+        if (raw.isEmpty()) {
+            dlNotice = "Paste a link or type a song name first.";
+        } else {
+            if (raw.regionMatches(true, 0, "www.", 0, 4) && raw.chars().noneMatch(Character::isWhitespace)) {
+                raw = "https://" + raw;
+            }
+            if (FileNames.isHttpUrl(raw)) {
+                if (blockedHost(raw)) {
+                    dlNotice = "YouTube/Spotify and similar sites are protected\nand cannot be downloaded. Search by name instead.";
+                } else {
+                    XFiveLiveClient.DOWNLOADS.enqueueUrl(raw, null);
+                    dlNotice = "Link added to downloads.";
+                    pendingLink = "";
+                    if (downloadInput != null) {
+                        downloadInput.setValue("");
+                    }
+                }
+            } else {
+                XFiveLiveClient.DOWNLOADS.search(raw);
+                dlNotice = "";
+            }
+        }
+        rowsScroll = 0;
+        refreshDownloadRows();
+    }
+
+    private void pasteLink() {
+        String clip = null;
+        try {
+            clip = GLFW.glfwGetClipboardString(GLFW.glfwGetCurrentContext());
+        } catch (RuntimeException ignored) {
+            // clipboard tidak tersedia
+        }
+        if (clip == null || clip.isBlank()) {
+            dlNotice = "Clipboard is empty. Copy a link first.";
+        } else {
+            pendingLink = clip.strip();
+            if (downloadInput != null) {
+                downloadInput.setValue(pendingLink);
+            }
+            dlNotice = "";
+        }
+        refreshDownloadRows();
+    }
+
     private void buildRows() {
         XFiveConfig c = XFiveLiveClient.CONFIG;
         List<Row> out = new ArrayList<>();
@@ -1297,6 +1556,7 @@ public final class ControlCenterScreen extends Screen {
                 out.add(action("Reset HUD positions", c::resetHudPositions));
                 out.add(action("Reset bar size", XFiveLiveClient::resetIslandSize));
             }
+            case DOWNLOAD -> buildDownloadRows(out);
             case CONTROLS -> {
                 out.add(cycle("Bar shape", () -> c.islandCard ? "Card" : "Pill", XFiveLiveClient::toggleIslandCard));
                 out.add(cycle("Bar color", ControlCenterScreen::colorName, XFiveLiveClient::cycleIslandColor));
@@ -1483,6 +1743,18 @@ public final class ControlCenterScreen extends Screen {
                 XFiveLiveClient.playUiSound();
             }
             return true;
+        }
+        if (page == Page.DOWNLOAD) {
+            if (in(mx, my, goRect())) {
+                pressedKey = "go";
+                startDownload();
+                return true;
+            }
+            if (in(mx, my, pasteRect())) {
+                pressedKey = "paste";
+                pasteLink();
+                return true;
+            }
         }
         return clickRows(mx, my);
     }
@@ -1710,7 +1982,8 @@ public final class ControlCenterScreen extends Screen {
             }
             return;
         }
-        if (r.kind == Row.TOGGLE || r.kind == Row.CYCLE || r.kind == Row.ACTION) {
+        if (r.kind == Row.TOGGLE || r.kind == Row.CYCLE || r.kind == Row.ACTION
+                || r.kind == Row.ITEM || r.kind == Row.PROGRESS) {
             r.action.run();
         }
     }
