@@ -93,7 +93,8 @@ public final class DynamicIslandHud {
         } else if (failed) {
             want = true;
         } else if (c.islandAutoHide) {
-            want = now < hideAt;
+            // Auto-hide only applies while idle/paused; never hide an actively playing track.
+            want = wasPlaying || XFiveLiveClient.MUSIC.isLoading() || now < hideAt;
         } else {
             want = wasPlaying || XFiveLiveClient.MUSIC.isLoading() || (c.islandShowPaused && m.track != null);
         }
