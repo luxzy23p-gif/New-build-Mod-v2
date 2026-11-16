@@ -124,7 +124,7 @@ public final class XFiveConfig {
         shuffle = bool(p, "music.shuffle", shuffle);
         favoriteMusic.clear();
         String savedFavorites = p.getProperty("music.favorites", "");
-        for (String item : savedFavorites.split("\\n")) if (!item.isBlank()) favoriteMusic.add(item.strip());
+        for (String item : savedFavorites.split("\\R")) if (!item.isBlank()) favoriteMusic.add(item.strip());
 
         enableLyrics = bool(p, "lyrics.enable", enableLyrics);
         autoLyrics = bool(p, "lyrics.auto", autoLyrics);
@@ -174,7 +174,7 @@ public final class XFiveConfig {
         put(p, "music.folder", musicFolder);
         put(p, "music.repeat", repeatMode);
         put(p, "music.shuffle", shuffle);
-        put(p, "music.favorites", String.join("\\n", favoriteMusic));
+        put(p, "music.favorites", String.join("\n", favoriteMusic));
 
         put(p, "lyrics.enable", enableLyrics);
         put(p, "lyrics.auto", autoLyrics);
