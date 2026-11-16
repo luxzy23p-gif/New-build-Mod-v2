@@ -102,42 +102,15 @@ Catatan: cara paling mudah dan paling pasti adalah menyalin lagu langsung ke fol
 
 Di menu samping ada halaman **Specs**: spesifikasi HP (Infinix GT30 Pro, Dimensity 8350 Ultimate, RAM 8 GB / ROM 256 GB, GPU Mali, XOS 16) dengan animasi: HP bergaris tergambar, chip membal, judul berganti huruf acak, lalu baris spesifikasi diketik satu per satu. Ketuk halamannya untuk memutar ulang animasi.
 
-## Halaman Download (cari, putar, dan simpan lagu online)
+## Explore (cari dan putar musik online)
 
-Menu samping → **Download**. Perlu internet. Ada kolom isian dan tiga tombol: **Paste**, **Play**, **Go**.
+Menu samping → **Explore**. Ketik judul lagu atau nama artis, lalu tekan **Search**. Hasil pencarian dan daftar Indo Hits / Western Hits berasal dari layanan yang tersedia melalui Audius dan tangga lagu publik.
 
-**Lagu hits saat ini**
-- Begitu halaman Download dibuka, muncul tangga **Indo Hits** dan **Western Hits** (25 lagu terpopuler hari ini, diambil dari tangga Apple Music Indonesia dan Amerika). Pilih tab di atas daftar.
-- **Play** di baris lagu: mod mencari lagu itu di Audius dan langsung memutarnya kalau ada yang cocok (judul dan artis harus sama).
-- **Find** menampilkan hasil pencarian untuk lagu itu supaya Anda memilih sendiri. Tombol **< Back to hits** kembali ke tangga.
-- Tangga hanya berisi **daftar judul**; audionya dicari di Audius. Lagu hits dari label besar sering **tidak ada** di Audius, jadi pesan "Not available to play" itu normal, bukan error.
-
-**Cari lagu (cara termudah)**
-1. Ketik judul lagu atau nama artis, ketuk **Go**.
-2. Muncul daftar lagu, tiap baris punya judul, artis, dan lama lagu.
-3. Ketuk **Play** untuk langsung mendengarkan.
-4. Tombol **Get** (simpan ke Library) hanya muncul pada lagu yang **pengunggahnya mengizinkan unduhan**. Lagu tanpa tombol Get hanya bisa diputar.
-
-Sumber pencarian: Audius (platform musik terbuka). Tidak semua lagu ada di sana, jadi sebagian pencarian bisa kosong atau hasilnya bukan lagu yang dicari. Lagu terkenal dari Spotify/YouTube sering tidak ada.
-
-**Tempel link langsung**
-1. Salin link file lagu (berakhiran .mp3, .m4a, .ogg atau .wav, atau link yang langsung memberi file lagu).
-2. Ketuk **Paste**, lalu **Go** (simpan ke Library) atau **Play** (dengarkan saja).
-
-**Play online**
-- Lagu dimuat dulu ke folder sementara `xfive-cache` (biasanya beberapa detik), lalu otomatis diputar. Lagu itu **tidak masuk Library**; folder sementara dikosongkan setiap game dibuka. Ini bukan streaming sungguhan: lagu harus selesai dimuat dulu.
-- Next/Previous setelah itu kembali ke lagu di Library. Untuk menambah ke Favorites, simpan dulu (jika ada tombol Get).
-
-**Setelah Get selesai**
-- Lagu otomatis masuk folder musik dan muncul di **Library** tanpa restart. Unduhan jalan di latar belakang walau menu ditutup.
-- Lirik diunduh otomatis saat lagunya diputar (kalau "Auto-download lyrics" aktif di Settings).
-
-**Pengaman**
-- File ditulis dulu sebagai `.part`, baru diganti nama setelah lengkap. Gagal/dibatalkan = file sementara dihapus.
-- Lagu yang sudah ada tidak pernah ditimpa (nama jadi `lagu (2).mp3`).
-- Halaman web yang menyamar jadi file lagu ditolak. Batas 200 MB per file. Koneksi putus dicoba ulang otomatis 2x.
-- Link YouTube, Spotify, TikTok, SoundCloud dan sejenisnya tidak bisa (dilindungi); mod memberi tahu kalau dicoba.
-- Unduh hanya lagu yang boleh Anda simpan (gratis/berlisensi/milik sendiri).
+- **Play** mencoba memutar hasil yang cocok.
+- Tidak ada tombol **Get**, simpan lagu, atau unduh lagu ke Library.
+- Pemutaran Audius saat ini memakai buffer sementara agar decoder mod dapat memainkan audio; ini bukan unduhan permanen, tetapi juga belum merupakan streaming adaptif seperti Spotify.
+- Lagu populer dari label besar mungkin tidak tersedia di Audius. Tangga lagu hanya memberi judul populer, bukan hak akses audio.
+- Spotify dan YouTube Music tidak menyediakan akses gratis untuk memutar seluruh katalog penuh melalui API publik mod. Karena itu mod tidak menjanjikan semua lagu dunia tersedia.
 
 ## Spesifikasi perangkat otomatis
 
