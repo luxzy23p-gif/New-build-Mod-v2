@@ -125,7 +125,7 @@ public final class XFiveConfig {
         favoriteMusic.clear();
         String savedFavorites = p.getProperty("music.favorites", "");
         // Migrate old configs that stored the two literal characters "\\n" between favorites.
-        savedFavorites = savedFavorites.replace("\\\\n", "\\n");
+        savedFavorites = savedFavorites.replace("\\n", "\n");
         for (String item : savedFavorites.split("\\R")) if (!item.isBlank()) favoriteMusic.add(item.strip());
 
         enableLyrics = bool(p, "lyrics.enable", enableLyrics);
