@@ -234,7 +234,7 @@ public final class ControlCenterScreen extends Screen {
             downloadInput.setBordered(false);
             downloadInput.setTextColor(0xFFFFFFFF);
             downloadInput.setMaxLength(600);
-            downloadInput.setHint(Component.literal("Paste a link or type a song name"));
+            downloadInput.setHint(Component.literal("Search a song or artist on Audius"));
             downloadInput.setValue(pendingLink);
             downloadInput.setResponder(q -> pendingLink = q);
             addRenderableWidget(downloadInput);
@@ -478,12 +478,8 @@ public final class ControlCenterScreen extends Screen {
                 }
                 int[] pill = downloadPill();
                 Glass.roundRect(g, pill[0], pill[1], pill[2], pill[3], 6, a(0xFFFFFF, 0.07f));
-                int[] pr = pasteRect();
                 int[] gr = goRect();
-                int[] ply = playRect();
-                drawPill(g, font, pr, "Paste", accent, in(mouseX, mouseY, pr), pressedKey.equals("paste"));
-                drawPill(g, font, ply, "Play", accent, in(mouseX, mouseY, ply), pressedKey.equals("dlplay"));
-                drawPill(g, font, gr, "Go", accent, in(mouseX, mouseY, gr), pressedKey.equals("go"));
+                drawPill(g, font, gr, "Search", accent, in(mouseX, mouseY, gr), pressedKey.equals("go"));
             }
             drawRows(g, font, accent, mouseX, mouseY, !anim);
         }
@@ -505,8 +501,7 @@ public final class ControlCenterScreen extends Screen {
         if (sbW > 40) {
             GlassPanelRenderer.text(g, font, "XFiveLive", px + 28, py + 12, 0xFF1ED760);
             GlassPanelRenderer.text(g, font, "MENU", px + 10, py + 27, GlassPanelRenderer.MUTED);
-            GlassPanelRenderer.text(g, font, "YOUR LIBRARY", px + 10, py + 103, GlassPanelRenderer.MUTED);
-        }
+                    }
         Page[] pages = Page.values();
         for (int i = 0; i < pages.length; i++) {
             int[] r = navRect(i);
@@ -869,27 +864,19 @@ public final class ControlCenterScreen extends Screen {
             }
             case Row.SONG -> {
                 AudiusSearch.Song so = r.song;
-                int[] pb = trackPlayBtn(r, ax, ay);
-                int[] gb = trackGetBtn(r, ax, ay);
+                int[] pbtn = playOnlyBtn(r, ax, ay);
                 int tl = ax + 6 + 24 + 6;
-                int right = so.downloadable() ? pb[0] : playOnlyBtn(r, ax, ay)[0];
                 Glass.roundRect(g, ax + 6, ay + 4, 24, 24, 4, a(accent, 0.25f));
                 String ini = so.title().isEmpty() ? "?" : so.title().substring(0, 1).toUpperCase(Locale.ROOT);
                 GlassPanelRenderer.text(g, font, ini, ax + 6 + (24 - GlassPanelRenderer.width(font, ini)) / 2, ay + 4 + 8, 0xFFFFFF);
                 String dur = so.duration();
-                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.label, right - tl - 6), tl, ay + 6, 0xFFFFFF);
+                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.label, pbtn[0] - tl - 6), tl, ay + 6, 0xFFFFFF);
                 GlassPanelRenderer.text(g, font,
-                        GlassPanelRenderer.fit(font, so.artist() + (dur.isEmpty() ? "" : "  " + dur), right - tl - 6), tl,
+                        GlassPanelRenderer.fit(font, so.artist() + (dur.isEmpty() ? "" : "  " + dur), pbtn[0] - tl - 6), tl,
                         ay + 18, GlassPanelRenderer.MUTED);
-                int[] pbtn = so.downloadable() ? pb : playOnlyBtn(r, ax, ay);
                 Glass.roundRect(g, pbtn[0], pbtn[1], pbtn[2], pbtn[3], 5, a(0x3DDC97, in(mx, my, pbtn) ? 0.55f : 0.35f));
                 int pw2 = GlassPanelRenderer.width(font, "Play");
                 GlassPanelRenderer.text(g, font, "Play", pbtn[0] + (pbtn[2] - pw2) / 2, pbtn[1] + (pbtn[3] - 9) / 2, 0xFFFFFF);
-                if (so.downloadable()) {
-                    Glass.roundRect(g, gb[0], gb[1], gb[2], gb[3], 5, a(accent, in(mx, my, gb) ? 0.45f : 0.30f));
-                    int gw2 = GlassPanelRenderer.width(font, "Get");
-                    GlassPanelRenderer.text(g, font, "Get", gb[0] + (gb[2] - gw2) / 2, gb[1] + (gb[3] - 9) / 2, 0xFFFFFF);
-                }
             }
             case Row.HIT -> {
                 int[] pb = trackPlayBtn(r, ax, ay);
@@ -1490,63 +1477,26 @@ public final class ControlCenterScreen extends Screen {
 
     private void buildDownloadRows(List<Row> out) {
         DownloadManager dm = XFiveLiveClient.DOWNLOADS;
-        if (!dlNotice.isEmpty()) {
-            for (String line : dlNotice.split("\n")) {
-                out.add(note(line));
-            }
-        }
-        List<DownloadJob> jobs = dm.jobs();
-        boolean anyFinished = false;
-        for (int i = jobs.size() - 1; i >= 0; i--) {
-            DownloadJob j = jobs.get(i);
-            anyFinished |= j.finished();
-            Row r = new Row(Row.PROGRESS, j.title);
-            r.job = j;
-            r.action = () -> {
-                if (!j.finished()) {
-                    dm.cancel(j);
-                } else if (j.state == DownloadJob.State.DONE) {
-                    dm.remove(j);
-                } else {
-                    dm.retry(j);
-                }
-            };
-            out.add(r);
-        }
-        if (anyFinished) {
-            Row clear = new Row(Row.ACTION, "Clear finished");
-            clear.action = dm::clearFinished;
-            out.add(clear);
-        }
         DownloadManager.SearchState ss = dm.searchState();
         List<AudiusSearch.Song> res = dm.results();
         boolean searching = ss != DownloadManager.SearchState.IDLE;
-        if (!dm.hitMessage().isEmpty()) {
-            out.add(note(dm.hitMessage()));
-        }
+        if (!dlNotice.isEmpty()) out.add(note(dlNotice));
+        if (!dm.hitMessage().isEmpty()) out.add(note(dm.hitMessage()));
         if (searching) {
-            Row back = new Row(Row.ACTION, "< Back to hits");
+            Row back = new Row(Row.ACTION, "< Back to charts");
             back.action = dm::clearSearch;
             out.add(back);
             if (ss == DownloadManager.SearchState.SEARCHING || ss == DownloadManager.SearchState.ERROR
                     || (ss == DownloadManager.SearchState.DONE && !dm.searchMessage().isEmpty())) {
                 out.add(note(dm.searchMessage()));
             }
-            if (!res.isEmpty()) {
-                out.add(note("Tap Play to listen. Get = save (if the artist allows)."));
-            }
+            if (!res.isEmpty()) out.add(note("Play streams from Audius. Results are not saved to your device."));
             for (AudiusSearch.Song so : res) {
                 Row r = new Row(Row.SONG, so.title());
                 r.song = so;
-                r.action = () -> {
-                    if (dm.enqueueSong(so, false) != null) {
-                        dlNotice = "Saving: " + so.title();
-                        refreshDownloadRows();
-                    }
-                };
                 r.action2 = () -> {
                     dm.enqueueSong(so, true);
-                    dlNotice = "Loading to play: " + so.title();
+                    dlNotice = "Preparing stream: " + so.title();
                     refreshDownloadRows();
                 };
                 out.add(r);
@@ -1554,52 +1504,23 @@ public final class ControlCenterScreen extends Screen {
             return;
         }
         Row indo = new Row(Row.ACTION, (chart == 0 ? "> " : "") + "Indo Hits");
-        indo.action = () -> {
-            chart = 0;
-            rowsScroll = 0;
-            refreshDownloadRows();
-        };
+        indo.action = () -> { chart = 0; rowsScroll = 0; refreshDownloadRows(); };
         out.add(indo);
         Row west = new Row(Row.ACTION, (chart == 1 ? "> " : "") + "Western Hits");
-        west.action = () -> {
-            chart = 1;
-            rowsScroll = 0;
-            refreshDownloadRows();
-        };
+        west.action = () -> { chart = 1; rowsScroll = 0; refreshDownloadRows(); };
         out.add(west);
-        if (!dm.hitsMessage().isEmpty()) {
-            out.add(note(dm.hitsMessage()));
-            if (dm.hitsMessage().startsWith("Could not")) {
-                Row again = new Row(Row.ACTION, "Reload hits");
-                again.action = () -> dm.loadHits(true);
-                out.add(again);
-            }
-        }
         List<HitCharts.Hit> hits = chart == 0 ? dm.hitsIndo() : dm.hitsWest();
-        if (!hits.isEmpty()) {
-            out.add(note("Top songs now. Play = listen, Find = see matches."));
-        }
+        if (!hits.isEmpty()) out.add(note("Choose a hit to play or search matching Audius uploads."));
         int rank = 1;
         for (HitCharts.Hit h : hits) {
             Row r = new Row(Row.HIT, h.name());
             r.hit = h;
             r.rank = rank++;
-            r.action = () -> {
-                dm.search(h.query());
-                dlNotice = "";
-                rowsScroll = 0;
-                refreshDownloadRows();
-            };
-            r.action2 = () -> {
-                dm.playHit(h);
-                dlNotice = "";
-                refreshDownloadRows();
-            };
+            r.action = () -> { dm.search(h.query()); dlNotice = ""; rowsScroll = 0; refreshDownloadRows(); };
+            r.action2 = () -> { dm.playHit(h); dlNotice = ""; refreshDownloadRows(); };
             out.add(r);
         }
-        if (hits.isEmpty() && dm.hitsMessage().isEmpty()) {
-            out.add(note("Type a song or artist above, then tap Go."));
-        }
+        if (hits.isEmpty()) out.add(note("Search a song or artist above."));
     }
 
     private void refreshDownloadRows() {
@@ -1630,26 +1551,12 @@ public final class ControlCenterScreen extends Screen {
     private void startDownload(boolean stream) {
         String raw = (downloadInput == null ? pendingLink : downloadInput.getValue()).strip();
         if (raw.isEmpty()) {
-            dlNotice = "Paste a link or type a song name first.";
+            dlNotice = "Type a song title or artist first.";
+        } else if (FileNames.isHttpUrl(raw)) {
+            dlNotice = "Direct-link saving is disabled. Search by song title instead.";
         } else {
-            if (raw.regionMatches(true, 0, "www.", 0, 4) && raw.chars().noneMatch(Character::isWhitespace)) {
-                raw = "https://" + raw;
-            }
-            if (FileNames.isHttpUrl(raw)) {
-                if (blockedHost(raw)) {
-                    dlNotice = "YouTube/Spotify and similar sites are protected\nand cannot be downloaded. Search by name instead.";
-                } else {
-                    XFiveLiveClient.DOWNLOADS.enqueueUrl(raw, null, stream);
-                    dlNotice = stream ? "Loading the song to play it..." : "Link added to downloads.";
-                    pendingLink = "";
-                    if (downloadInput != null) {
-                        downloadInput.setValue("");
-                    }
-                }
-            } else {
-                XFiveLiveClient.DOWNLOADS.search(raw);
-                dlNotice = "";
-            }
+            XFiveLiveClient.DOWNLOADS.search(raw);
+            dlNotice = "";
         }
         rowsScroll = 0;
         refreshDownloadRows();
@@ -1895,22 +1802,10 @@ public final class ControlCenterScreen extends Screen {
             }
             return true;
         }
-        if (page == Page.DOWNLOAD) {
-            if (in(mx, my, goRect())) {
-                pressedKey = "go";
-                startDownload(false);
-                return true;
-            }
-            if (in(mx, my, playRect())) {
-                pressedKey = "dlplay";
-                startDownload(true);
-                return true;
-            }
-            if (in(mx, my, pasteRect())) {
-                pressedKey = "paste";
-                pasteLink();
-                return true;
-            }
+        if (page == Page.DOWNLOAD && in(mx, my, goRect())) {
+            pressedKey = "go";
+            startDownload(true);
+            return true;
         }
         return clickRows(mx, my);
     }
@@ -2150,13 +2045,8 @@ public final class ControlCenterScreen extends Screen {
         }
         if (r.kind == Row.SONG) {
             int ax = rowsX() + r.x;
-            int[] pb = r.song.downloadable() ? trackPlayBtn(r, ax, 0) : playOnlyBtn(r, ax, 0);
-            int[] gb = trackGetBtn(r, ax, 0);
-            if (mx >= pb[0] && mx < pb[0] + pb[2]) {
-                r.action2.run();
-            } else if (r.song.downloadable() && mx >= gb[0] && mx < gb[0] + gb[2]) {
-                r.action.run();
-            }
+            int[] pb = playOnlyBtn(r, ax, 0);
+            if (mx >= pb[0] && mx < pb[0] + pb[2]) r.action2.run();
             return;
         }
         if (r.kind == Row.TOGGLE || r.kind == Row.CYCLE || r.kind == Row.ACTION
