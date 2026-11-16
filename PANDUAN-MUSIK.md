@@ -56,7 +56,7 @@ Tekan **F6** untuk langsung ke Audio (daftar lagu + pemutar), atau **Right Shift
 - **HUD**: nyalakan atau matikan tiap HUD, atur HUD opacity, lebar dan tinggi Dynamic Island. **Drag HUD** membuka mode geser: tahan dan geser kotak HUD dengan jari.
 - **Custom Controls**: bentuk Island (Card atau Pill), warna, Auto hide, lama pop-up, tampil saat jeda, repeat, shuffle.
 - **Appearance**: 8 tema warna (Purple, Cyan, Rose, Emerald, Amber, Ocean, Crimson, Mono). Ketuk kotak warna untuk mengganti. Tema dipakai di Control Center dan semua HUD. Juga ada Glass opacity dan Animations.
-- **Settings**: aktifkan mod, putar otomatis, tampilkan artwork.
+- **Settings**: aktifkan mod, putar otomatis, unduh lirik otomatis, baca spesifikasi perangkat.
 
 Tekan **Close** atau Esc untuk keluar. Pengaturan tersimpan otomatis.
 
