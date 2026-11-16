@@ -13,6 +13,7 @@ Tes ada di `tests/com/xfive/live/tests/XFiveTests.java` dan hanya memakai kode t
 
 ## Download dan Play lagu online
 
+- Halaman **Download** menampilkan tangga hits Indonesia dan barat (Apple Music Most Played, `HitCharts.java`); Play mencari lagunya di Audius dan hanya memutar hasil yang judul+artisnya cocok.
 - Halaman **Download** di Control Center: cari lagu (sumber Audius) dalam satu daftar; **Play** memutar dari folder cache sementara (bukan streaming sungguhan), **Get** menyimpan ke Library hanya jika pengunggah mengizinkan unduhan. Tempel link file lagu langsung juga bisa.
 - Kode murni (tanpa Minecraft) ada di `src/main/java/com/xfive/live/download/` dan dites dengan server HTTP palsu (sukses, redirect, HTML, file palsu, 404, 503 lalu berhasil, putus di tengah, batas ukuran, batal, folder tidak bisa ditulis, cache).
 - YouTube/Spotify sengaja tidak didukung (dilindungi). Tampilannya baru terkompilasi di CI; belum dicoba di HP.

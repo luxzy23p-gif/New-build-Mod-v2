@@ -36,6 +36,13 @@ public final class DownloadManager {
     private final AtomicInteger version = new AtomicInteger();
     private final ConcurrentHashMap<String, Path> streamCache = new ConcurrentHashMap<>();
 
+    private volatile List<HitCharts.Hit> hitsId = List.of();
+    private volatile List<HitCharts.Hit> hitsWest = List.of();
+    private volatile String hitsMessage = "";
+    private volatile long hitsLoadedAt = 0L;
+    private volatile boolean hitsLoading = false;
+    private volatile String hitMessage = "";
+
     private volatile SearchState searchState = SearchState.IDLE;
     private volatile String searchMessage = "";
     private volatile List<AudiusSearch.Song> results = List.of();
@@ -83,6 +90,24 @@ public final class DownloadManager {
 
     public List<AudiusSearch.Song> results() {
         return results;
+    }
+
+    public List<HitCharts.Hit> hitsIndo() {
+        return hitsId;
+    }
+
+    public List<HitCharts.Hit> hitsWest() {
+        return hitsWest;
+    }
+
+    /** Pesan status tangga lagu ("Loading hits...", atau kesalahan); kosong jika baik-baik saja. */
+    public String hitsMessage() {
+        return hitsMessage;
+    }
+
+    /** Hasil terakhir dari tombol Play pada lagu tangga (misalnya "tidak ditemukan"). */
+    public String hitMessage() {
+        return hitMessage;
     }
 
     public boolean busy() {
@@ -250,6 +275,7 @@ public final class DownloadManager {
     /** Mencari lagu di Audius (latar belakang). Pencarian lama yang tertinggal diabaikan. */
     public void search(String query) {
         final int seq = searchSeq.incrementAndGet();
+        hitMessage = "";
         searchState = SearchState.SEARCHING;
         searchMessage = "Searching...";
         results = List.of();
@@ -274,6 +300,70 @@ public final class DownloadManager {
         }, "xfive-search");
         t.setDaemon(true);
         t.start();
+    }
+
+    /** Memuat tangga lagu Indonesia dan barat di latar belakang (dipakai ulang selama 30 menit). */
+    public void loadHits(boolean force) {
+        if (hitsLoading || (!force && hitsLoadedAt != 0L && System.currentTimeMillis() - hitsLoadedAt < 30 * 60_000L)) {
+            return;
+        }
+        hitsLoading = true;
+        hitsMessage = "Loading hits...";
+        version.incrementAndGet();
+        Thread t = new Thread(() -> {
+            String err = "";
+            try {
+                hitsId = HitCharts.load("id", 25);
+            } catch (IOException | RuntimeException e) {
+                err = e.getMessage() == null ? "no internet?" : e.getMessage();
+            }
+            try {
+                hitsWest = HitCharts.load("us", 25);
+            } catch (IOException | RuntimeException e) {
+                err = e.getMessage() == null ? "no internet?" : e.getMessage();
+            }
+            if (!hitsId.isEmpty() || !hitsWest.isEmpty()) {
+                hitsLoadedAt = System.currentTimeMillis();
+                hitsMessage = "";
+            } else {
+                hitsMessage = "Could not load hits: " + err;
+            }
+            hitsLoading = false;
+            version.incrementAndGet();
+        }, "xfive-hits");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** Memutar lagu tangga: cari di Audius, putar hasil yang cocok. Jika tidak ada, pesan "tidak tersedia". */
+    public void playHit(HitCharts.Hit hit) {
+        hitMessage = "Looking for \"" + hit.name() + "\"...";
+        version.incrementAndGet();
+        Thread t = new Thread(() -> {
+            try {
+                AudiusSearch.Song song = HitCharts.bestMatch(hit, AudiusSearch.search(hit.query(), 15));
+                if (song == null) {
+                    hitMessage = "Not available to play: " + hit.name() + ". Tap Find to see similar songs.";
+                } else {
+                    hitMessage = "Loading to play: " + hit.name();
+                    enqueueSong(song, true);
+                }
+            } catch (IOException | RuntimeException e) {
+                hitMessage = "Search failed: " + (e.getMessage() == null ? "no internet?" : e.getMessage());
+            }
+            version.incrementAndGet();
+        }, "xfive-hit");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** Menutup hasil pencarian dan kembali ke tangga lagu. */
+    public void clearSearch() {
+        searchSeq.incrementAndGet();
+        searchState = SearchState.IDLE;
+        searchMessage = "";
+        results = List.of();
+        version.incrementAndGet();
     }
 
     public void shutdown() {

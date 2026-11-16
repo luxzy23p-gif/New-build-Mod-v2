@@ -7,6 +7,7 @@ import com.xfive.live.download.CacheCleaner;
 import com.xfive.live.download.DownloadJob;
 import com.xfive.live.download.DownloadManager;
 import com.xfive.live.download.FileNames;
+import com.xfive.live.download.HitCharts;
 import com.xfive.live.download.MiniJson;
 import com.xfive.live.download.AudiusSearch;
 
@@ -159,6 +160,32 @@ final class DownloadTests {
             b2 = true;
         }
         ok("audius bad answers rejected", b1 && b2);
+
+        String cj = "{\"feed\":{\"results\":[{\"name\":\"Stuck\",\"artistName\":\"LANY\",\"id\":\"1\"},"
+                + "{\"name\":\"Teh Hijau\",\"artistName\":\"Tulus\"},{\"artistName\":\"no name\"},"
+                + "{\"name\":\"BbY WOW\",\"artistName\":\"KAROL G, Judeline & rusowsky\"}]}}";
+        List<HitCharts.Hit> hits = HitCharts.parse(cj);
+        ok("chart parse", hits.size() == 3 && hits.get(0).name().equals("Stuck") && hits.get(1).artist().equals("Tulus"));
+        ok("chart query uses first artist", "BbY WOW KAROL G".equals(hits.get(2).query()) && "Stuck LANY".equals(hits.get(0).query()));
+        ok("chart url", "https://rss.marketingtools.apple.com/api/v2/id/music/most-played/25/songs.json".equals(HitCharts.url("id", 25)));
+        boolean c1 = false;
+        try {
+            HitCharts.parse("{\"x\":1}");
+        } catch (IOException e) {
+            c1 = true;
+        }
+        ok("chart bad answer rejected", c1);
+        List<AudiusSearch.Song> cand = List.of(
+                new AudiusSearch.Song("1", "Teh Hijau Remix Cover", "Random Guy", 100, false),
+                new AudiusSearch.Song("2", "Teh Hijau (Official Audio)", "Tulus", 100, false),
+                new AudiusSearch.Song("3", "Something else", "Tulus", 100, false));
+        ok("match needs title and artist", HitCharts.bestMatch(hits.get(1), cand) == cand.get(1));
+        ok("match refuses wrong songs", HitCharts.bestMatch(hits.get(0), cand) == null
+                && HitCharts.bestMatch(new HitCharts.Hit("Teh Hijau", "Tulus"), List.of(cand.get(0))) == null);
+        ok("match by artist in title", HitCharts.bestMatch(new HitCharts.Hit("Stuck", "LANY"),
+                List.of(new AudiusSearch.Song("9", "LANY - Stuck", "uploader", 90, false))) != null);
+        ok("match ignores case and brackets", HitCharts.bestMatch(new HitCharts.Hit("Stuck (feat. X)", "LANY"),
+                List.of(new AudiusSearch.Song("9", "stuck!", "lany", 90, false))) != null);
     }
 
     // ---------------------------------------------------------------
@@ -191,6 +218,12 @@ final class DownloadTests {
             ex.getResponseHeaders().add("Location", "/ok.mp3");
             send(ex, 302, null, new byte[0]);
         });
+        s.createContext("/api/v2/id/music/most-played/25/songs.json", ex -> send(ex, 200, "application/json",
+                "{\"feed\":{\"results\":[{\"name\":\"Teh Hijau\",\"artistName\":\"Tulus\"},{\"name\":\"Nope Song\",\"artistName\":\"Nobody\"}]}}".getBytes(StandardCharsets.UTF_8)));
+        s.createContext("/api/v2/us/music/most-played/25/songs.json", ex -> send(ex, 500, "text/plain", "x".getBytes(StandardCharsets.UTF_8)));
+        s.createContext("/v1/tracks/search", ex -> send(ex, 200, "application/json",
+                ("{\"data\":[{\"id\":\"zz\",\"title\":\"Unrelated\",\"user\":{\"name\":\"Bob\"}},"
+                        + "{\"id\":\"ok\",\"title\":\"Teh Hijau (Official)\",\"user\":{\"name\":\"Tulus\"},\"duration\":200}]}").getBytes(StandardCharsets.UTF_8)));
         s.createContext("/ok.mp3", ex -> send(ex, 200, "audio/mpeg", mp3(20_000)));
         s.createContext("/redir", ex -> {
             ex.getResponseHeaders().add("Location", "/ok.mp3");
@@ -395,6 +428,46 @@ final class DownloadTests {
             } finally {
                 AudiusSearch.host = "https://api.audius.co";
                 dm3.shutdown();
+            }
+
+            // ---- tangga lagu ----
+            HitCharts.base = base;
+            AudiusSearch.host = base;
+            List<DownloadJob> ready2 = new CopyOnWriteArrayList<>();
+            DownloadManager dm4 = new DownloadManager(() -> dir, () -> work.resolve("cache2"), 1_000_000, 1, 1, 50, j -> { }, ready2::add);
+            try {
+                dm4.loadHits(false);
+                long end = System.currentTimeMillis() + 5000;
+                while (dm4.hitsIndo().isEmpty() && System.currentTimeMillis() < end) {
+                    Thread.sleep(20);
+                }
+                Thread.sleep(100);
+                ok("hits load (one chart may fail)", dm4.hitsIndo().size() == 2 && dm4.hitsWest().isEmpty() && dm4.hitsMessage().isEmpty());
+                dm4.playHit(dm4.hitsIndo().get(0));
+                end = System.currentTimeMillis() + 8000;
+                while (ready2.isEmpty() && System.currentTimeMillis() < end) {
+                    Thread.sleep(20);
+                }
+                ok("play hit finds the matching song and plays it", ready2.size() == 1
+                        && ready2.get(0).artist.equals("Tulus") && ready2.get(0).stream);
+                dm4.playHit(dm4.hitsIndo().get(1));
+                end = System.currentTimeMillis() + 5000;
+                while (!dm4.hitMessage().startsWith("Not available") && System.currentTimeMillis() < end) {
+                    Thread.sleep(20);
+                }
+                ok("play hit says so when no match", dm4.hitMessage().startsWith("Not available") && ready2.size() == 1);
+                dm4.search("anything");
+                end = System.currentTimeMillis() + 5000;
+                while (dm4.results().isEmpty() && System.currentTimeMillis() < end) {
+                    Thread.sleep(20);
+                }
+                ok("search then back to hits", dm4.results().size() == 2 && dm4.hitMessage().isEmpty());
+                dm4.clearSearch();
+                ok("clear search", dm4.results().isEmpty() && dm4.searchState() == DownloadManager.SearchState.IDLE);
+            } finally {
+                HitCharts.base = "https://rss.marketingtools.apple.com";
+                AudiusSearch.host = "https://api.audius.co";
+                dm4.shutdown();
             }
 
             Path cdir = work.resolve("cleaner");

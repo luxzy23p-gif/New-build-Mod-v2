@@ -106,6 +106,12 @@ Di menu samping ada halaman **Specs**: spesifikasi HP (Infinix GT30 Pro, Dimensi
 
 Menu samping → **Download**. Perlu internet. Ada kolom isian dan tiga tombol: **Paste**, **Play**, **Go**.
 
+**Lagu hits saat ini**
+- Begitu halaman Download dibuka, muncul tangga **Indo Hits** dan **Western Hits** (25 lagu terpopuler hari ini, diambil dari tangga Apple Music Indonesia dan Amerika). Pilih tab di atas daftar.
+- **Play** di baris lagu: mod mencari lagu itu di Audius dan langsung memutarnya kalau ada yang cocok (judul dan artis harus sama).
+- **Find** menampilkan hasil pencarian untuk lagu itu supaya Anda memilih sendiri. Tombol **< Back to hits** kembali ke tangga.
+- Tangga hanya berisi **daftar judul**; audionya dicari di Audius. Lagu hits dari label besar sering **tidak ada** di Audius, jadi pesan "Not available to play" itu normal, bukan error.
+
 **Cari lagu (cara termudah)**
 1. Ketik judul lagu atau nama artis, ketuk **Go**.
 2. Muncul daftar lagu, tiap baris punya judul, artis, dan lama lagu.

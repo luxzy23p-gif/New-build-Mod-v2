@@ -9,6 +9,7 @@ import com.xfive.live.download.DownloadJob;
 import com.xfive.live.download.DownloadManager;
 import com.xfive.live.download.FileNames;
 import com.xfive.live.download.AudiusSearch;
+import com.xfive.live.download.HitCharts;
 import com.xfive.live.config.DeviceInfo;
 import com.xfive.live.config.SpecSheet;
 import com.xfive.live.hud.DynamicIslandHud;
@@ -101,6 +102,7 @@ public final class ControlCenterScreen extends Screen {
     private String pendingLink = "";
     private String dlNotice = "";
     private int dlVersion = -1;
+    private int chart = 0; // 0 = Indo, 1 = barat
 
     private double songScroll;
     private double rowsScroll;
@@ -148,6 +150,9 @@ public final class ControlCenterScreen extends Screen {
     private ControlCenterScreen(Page page) {
         super(Component.literal("XFiveLive Control Center"));
         this.page = page;
+        if (page == Page.DOWNLOAD) {
+            XFiveLiveClient.DOWNLOADS.loadHits(false);
+        }
         XFiveLiveClient.playUiSound();
         history.add(page);
         buildRows();
@@ -884,6 +889,22 @@ public final class ControlCenterScreen extends Screen {
                     GlassPanelRenderer.text(g, font, "Get", gb[0] + (gb[2] - gw2) / 2, gb[1] + (gb[3] - 9) / 2, 0xFFFFFF);
                 }
             }
+            case Row.HIT -> {
+                int[] pb = trackPlayBtn(r, ax, ay);
+                int[] gb = trackGetBtn(r, ax, ay);
+                String rk = String.valueOf(r.rank);
+                GlassPanelRenderer.text(g, font, rk, ax + 8, ay + (r.h - 9) / 2, accent);
+                int tl = ax + 8 + Math.max(12, GlassPanelRenderer.width(font, rk) + 6);
+                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.hit.name(), pb[0] - tl - 6), tl, ay + 6, 0xFFFFFF);
+                GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, r.hit.artist(), pb[0] - tl - 6), tl, ay + 18,
+                        GlassPanelRenderer.MUTED);
+                Glass.roundRect(g, pb[0], pb[1], pb[2], pb[3], 5, a(0x3DDC97, in(mx, my, pb) ? 0.55f : 0.35f));
+                Glass.roundRect(g, gb[0], gb[1], gb[2], gb[3], 5, a(accent, in(mx, my, gb) ? 0.45f : 0.30f));
+                int pw3 = GlassPanelRenderer.width(font, "Play");
+                int fw3 = GlassPanelRenderer.width(font, "Find");
+                GlassPanelRenderer.text(g, font, "Play", pb[0] + (pb[2] - pw3) / 2, pb[1] + (pb[3] - 9) / 2, 0xFFFFFF);
+                GlassPanelRenderer.text(g, font, "Find", gb[0] + (gb[2] - fw3) / 2, gb[1] + (gb[3] - 9) / 2, 0xFFFFFF);
+            }
             case Row.PROGRESS -> drawProgressRow(g, font, accent, r, ax, ay);
             case Row.SAMPLE -> {
                 int vw = r.w - 16;
@@ -1343,6 +1364,7 @@ public final class ControlCenterScreen extends Screen {
         static final int NOTE = 6;
         static final int PROGRESS = 8;
         static final int SONG = 9;
+        static final int HIT = 10;
 
         final int kind;
         final String label;
@@ -1354,6 +1376,8 @@ public final class ControlCenterScreen extends Screen {
         DoubleConsumer set = v -> { };
         DownloadJob job;
         AudiusSearch.Song song;
+        HitCharts.Hit hit;
+        int rank;
         String sub = "";
         boolean full;
         int h = 22;
@@ -1376,7 +1400,7 @@ public final class ControlCenterScreen extends Screen {
                 full = true;
                 h = 32;
             }
-            if (kind == SONG) {
+            if (kind == SONG || kind == HIT) {
                 full = true;
                 h = 32;
             }
@@ -1493,13 +1517,22 @@ public final class ControlCenterScreen extends Screen {
             out.add(clear);
         }
         DownloadManager.SearchState ss = dm.searchState();
-        if (ss == DownloadManager.SearchState.SEARCHING || ss == DownloadManager.SearchState.ERROR
-                || (ss == DownloadManager.SearchState.DONE && !dm.searchMessage().isEmpty())) {
-            out.add(note(dm.searchMessage()));
-        }
         List<AudiusSearch.Song> res = dm.results();
-        if (!res.isEmpty()) {
-            out.add(note("Tap Play to listen. Get = save (if the artist allows)."));
+        boolean searching = ss != DownloadManager.SearchState.IDLE;
+        if (!dm.hitMessage().isEmpty()) {
+            out.add(note(dm.hitMessage()));
+        }
+        if (searching) {
+            Row back = new Row(Row.ACTION, "< Back to hits");
+            back.action = dm::clearSearch;
+            out.add(back);
+            if (ss == DownloadManager.SearchState.SEARCHING || ss == DownloadManager.SearchState.ERROR
+                    || (ss == DownloadManager.SearchState.DONE && !dm.searchMessage().isEmpty())) {
+                out.add(note(dm.searchMessage()));
+            }
+            if (!res.isEmpty()) {
+                out.add(note("Tap Play to listen. Get = save (if the artist allows)."));
+            }
             for (AudiusSearch.Song so : res) {
                 Row r = new Row(Row.SONG, so.title());
                 r.song = so;
@@ -1516,12 +1549,54 @@ public final class ControlCenterScreen extends Screen {
                 };
                 out.add(r);
             }
+            return;
         }
-        if (jobs.isEmpty() && res.isEmpty() && ss == DownloadManager.SearchState.IDLE) {
-            out.add(note("Type a song or artist, then tap Go."));
-            out.add(note("Tap Play on a result to listen right away."));
-            out.add(note("Or paste a link to a song file, then Go or Play."));
-            out.add(note("YouTube/Spotify are protected: not supported."));
+        Row indo = new Row(Row.ACTION, (chart == 0 ? "> " : "") + "Indo Hits");
+        indo.action = () -> {
+            chart = 0;
+            rowsScroll = 0;
+            refreshDownloadRows();
+        };
+        out.add(indo);
+        Row west = new Row(Row.ACTION, (chart == 1 ? "> " : "") + "Western Hits");
+        west.action = () -> {
+            chart = 1;
+            rowsScroll = 0;
+            refreshDownloadRows();
+        };
+        out.add(west);
+        if (!dm.hitsMessage().isEmpty()) {
+            out.add(note(dm.hitsMessage()));
+            if (dm.hitsMessage().startsWith("Could not")) {
+                Row again = new Row(Row.ACTION, "Reload hits");
+                again.action = () -> dm.loadHits(true);
+                out.add(again);
+            }
+        }
+        List<HitCharts.Hit> hits = chart == 0 ? dm.hitsIndo() : dm.hitsWest();
+        if (!hits.isEmpty()) {
+            out.add(note("Top songs now. Play = listen, Find = see matches."));
+        }
+        int rank = 1;
+        for (HitCharts.Hit h : hits) {
+            Row r = new Row(Row.HIT, h.name());
+            r.hit = h;
+            r.rank = rank++;
+            r.action = () -> {
+                dm.search(h.query());
+                dlNotice = "";
+                rowsScroll = 0;
+                refreshDownloadRows();
+            };
+            r.action2 = () -> {
+                dm.playHit(h);
+                dlNotice = "";
+                refreshDownloadRows();
+            };
+            out.add(r);
+        }
+        if (hits.isEmpty() && dm.hitsMessage().isEmpty()) {
+            out.add(note("Type a song or artist above, then tap Go."));
         }
     }
 
@@ -1693,6 +1768,9 @@ public final class ControlCenterScreen extends Screen {
             histPos = history.size() - 1;
         }
         page = target;
+        if (page == Page.DOWNLOAD) {
+            XFiveLiveClient.DOWNLOADS.loadHits(false);
+        }
         songScroll = 0;
         rowsScroll = 0;
         pageNanos = System.nanoTime();
@@ -2054,6 +2132,17 @@ public final class ControlCenterScreen extends Screen {
             if (i >= 0 && i < Themes.IDS.length) {
                 XFiveLiveClient.CONFIG.theme = Themes.IDS[i];
                 XFiveLiveClient.CONFIG.save();
+            }
+            return;
+        }
+        if (r.kind == Row.HIT) {
+            int ax = rowsX() + r.x;
+            int[] pb = trackPlayBtn(r, ax, 0);
+            int[] gb = trackGetBtn(r, ax, 0);
+            if (mx >= pb[0] && mx < pb[0] + pb[2]) {
+                r.action2.run();
+            } else if (mx >= gb[0] && mx < gb[0] + gb[2]) {
+                r.action.run();
             }
             return;
         }
