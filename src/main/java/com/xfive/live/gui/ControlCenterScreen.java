@@ -178,8 +178,8 @@ public final class ControlCenterScreen extends Screen {
     private boolean isMusicPage() { return page == Page.LIBRARY || page == Page.FAVORITES; }
     private boolean wide() { return cw() >= 330 && ph >= 190; }
     private int npW() { return wide() ? Math.min(132, cw() / 3) : 0; }
-    private int listX() { return cx0() + 8 + (wide() ? npW() + 8 : 0); }
-    private int listR() { return px + pw - 8; }
+    private int listX() { return cx0() + 8; }
+    private int listR() { return px + pw - 8 - (wide() ? npW() + 8 : 0); }
     private int listTop() { return contentTop() + (page == Page.LIBRARY ? 26 : 4); }
     private int listBot() { return contentBot() - 4; }
 
@@ -700,7 +700,7 @@ public final class ControlCenterScreen extends Screen {
 
     private int[] nowRect() {
         int top = contentTop() + 4;
-        return new int[] {cx0() + 8, top, npW(), contentBot() - 4 - top};
+        return new int[] {px + pw - 8 - npW(), top, npW(), contentBot() - 4 - top};
     }
 
     private int[] npPlayRect(int[] n, int cover) {
