@@ -266,7 +266,9 @@ public final class DynamicIslandHud {
     /** Menggambar pil kaca: judul, artis, dan garis progres tipis. */
     public static void drawPill(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h,
                                 String title, String sub, float progress, float content, int accent, float alpha) {
-        Glass.panel(g, x, y, w, h, h / 2, alpha, accent);
+        Glass.roundRect(g, x, y, w, h, h / 2, Glass.argb(0x000000, alpha));
+        Glass.border(g, x, y, w, h, h / 2,
+                Glass.argb(0xFFFFFF, 0.18f * alpha), Glass.argb(0xFFFFFF, 0.06f * alpha));
         if (content <= 0.4f) {
             return;
         }
