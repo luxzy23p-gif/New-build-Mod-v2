@@ -185,7 +185,9 @@ public final class DynamicIslandHud {
                                 String title, String artist, float progress, long posMs, long durMs,
                                 boolean playing, int accent, float alpha, float content) {
         float s = h / (float) CARD_H;
-        Glass.panel(g, x, y, w, h, Math.max(5, u(13, s)), alpha, accent);
+        Glass.roundRect(g, x, y, w, h, Math.max(5, u(13, s)), Glass.argb(0x000000, alpha));
+        Glass.border(g, x, y, w, h, Math.max(5, u(13, s)),
+                Glass.argb(0xFFFFFF, 0.18f * alpha), Glass.argb(0xFFFFFF, 0.06f * alpha));
         if (content <= 0.02f) {
             return;
         }
