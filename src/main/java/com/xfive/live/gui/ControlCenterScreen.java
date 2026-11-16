@@ -42,7 +42,7 @@ import java.util.function.Supplier;
  */
 public final class ControlCenterScreen extends Screen {
     private enum Page {
-        LIBRARY("Library"), FAVORITES("Favorites"), DOWNLOAD("Download"), HUD("Custom HUD"),
+        LIBRARY("Library"), FAVORITES("Liked Songs"), DOWNLOAD("Explore"), HUD("Custom HUD"),
         CONTROLS("Player Controls"), APPEARANCE("Appearance"), SPECS("Specs"), SETTINGS("Settings");
 
         final String title;
@@ -163,11 +163,11 @@ public final class ControlCenterScreen extends Screen {
     // =====================================================================
 
     private void layout() {
-        pw = Math.min(width - 12, 780);
-        ph = Math.min(height - 12, 440);
+        pw = Math.min(width - 12, 900);
+        ph = Math.min(height - 12, 520);
         px = (width - pw) / 2;
         py = (height - ph) / 2;
-        sbW = pw >= 400 ? 86 : 30;
+        sbW = pw >= 560 ? 116 : (pw >= 400 ? 92 : 30);
     }
 
     private int cx0() { return px + sbW; }
@@ -417,7 +417,7 @@ public final class ControlCenterScreen extends Screen {
         return switch (p) {
             case LIBRARY -> IC_LIBRARY;
             case FAVORITES -> IC_HEART;
-            case DOWNLOAD -> IC_DOWN;
+            case DOWNLOAD -> IC_SEARCH;
             case HUD -> IC_HUD;
             case CONTROLS -> IC_CONTROLS;
             case APPEARANCE -> IC_STAR;
@@ -501,9 +501,11 @@ public final class ControlCenterScreen extends Screen {
 
     private void drawSidebar(GuiGraphicsExtractor g, Font font, int accent, int mx, int my) {
         Glass.roundRect(g, px + 3, py + 3, sbW - 3, ph - 6, 6, a(0x000000, 0.30f));
-        GlassPanelRenderer.text(g, font, "X5", px + 10, py + 12, accent);
+        GlassPanelRenderer.text(g, font, "X5", px + 10, py + 12, 0xFF1ED760);
         if (sbW > 40) {
-            GlassPanelRenderer.text(g, font, "LIVE", px + 28, py + 12, GlassPanelRenderer.MUTED);
+            GlassPanelRenderer.text(g, font, "XFiveLive", px + 28, py + 12, 0xFF1ED760);
+            GlassPanelRenderer.text(g, font, "MENU", px + 10, py + 27, GlassPanelRenderer.MUTED);
+            GlassPanelRenderer.text(g, font, "YOUR LIBRARY", px + 10, py + 103, GlassPanelRenderer.MUTED);
         }
         Page[] pages = Page.values();
         for (int i = 0; i < pages.length; i++) {
