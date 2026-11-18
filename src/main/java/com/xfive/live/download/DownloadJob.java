@@ -2,7 +2,7 @@ package com.xfive.live.download;
 
 import java.nio.file.Path;
 
-/** Satu unduhan (atau satu permintaan "ambil semua lagu dari hasil pencarian"). Field dibaca dari thread game. */
+/** Satu pemuatan lagu ke folder cache sebelum diputar. Field dibaca dari thread game. */
 public final class DownloadJob {
     public enum State { QUEUED, RUNNING, DONE, FAILED, CANCELLED }
 
@@ -12,8 +12,10 @@ public final class DownloadJob {
     /** Nama tampilan sementara (judul hasil pencarian atau nama dari link). */
     public final String title;
 
-    /** Putar langsung (disimpan di folder cache, bukan di Library). */
-    public volatile boolean stream;
+    /** Lagu online yang dimuat (null untuk link biasa). */
+    public volatile Song song;
+    /** Nomor permintaan putar saat job dibuat; job yang tertinggal (sudah diganti lagu lain) tidak diputar. */
+    public volatile int seq;
     /** Nama file diambil dari judul ("Artis - Judul"), bukan dari alamat file. */
     public volatile boolean nameFromTitle;
     public volatile String artist = "";

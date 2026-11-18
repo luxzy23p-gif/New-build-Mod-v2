@@ -2,7 +2,7 @@ package com.xfive.live;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.xfive.live.config.XFiveConfig;
-import com.xfive.live.download.DownloadManager;
+import com.xfive.live.download.OnlineManager;
 import com.xfive.live.gui.ControlCenterScreen;
 import com.xfive.live.hud.DynamicIslandHud;
 import com.xfive.live.hud.LyricsHud;
@@ -45,14 +45,10 @@ public final class XFiveLiveClient implements ClientModInitializer {
     public static final XFiveConfig CONFIG = new XFiveConfig(FabricLoader.getInstance().getConfigDir());
     public static final MusicManager MUSIC = new MusicManager();
     public static final LyricsManager LYRICS = new LyricsManager();
-    /** Unduhan lagu online (latar belakang). Hasilnya disimpan ke folder musik lalu daftar lagu dimuat ulang. */
-    public static final DownloadManager DOWNLOADS = new DownloadManager(
-            XFiveLiveClient::downloadDir, XFiveLiveClient::cacheDir,
+    /** Lagu online tanpa unduhan: pencarian, tangga lagu, antrean. Lagu dimuat ke cache sementara lalu diputar. */
+    public static final OnlineManager ONLINE = new OnlineManager(
+            XFiveLiveClient::cacheDir,
             com.xfive.live.download.Downloader.DEFAULT_MAX_BYTES, 2, 2, 1500L,
-            job -> Minecraft.getInstance().execute(() -> {
-                refreshMusic();
-                MUSIC.setStatus("Saved: " + job.fileName);
-            }),
             job -> Minecraft.getInstance().execute(() -> {
                 if (job.result == null) {
                     return;
@@ -63,7 +59,6 @@ public final class XFiveLiveClient implements ClientModInitializer {
                                 job.artist.isEmpty() ? "Unknown Artist" : job.artist);
                 MUSIC.playOnline(t);
             }));
-
 
     static final String SOURCE_FILE = "folder-musik.txt";
     private static final String SOURCE_TEMPLATE = String.join("\n",
@@ -79,14 +74,6 @@ public final class XFiveLiveClient implements ClientModInitializer {
         if (mc != null && mc.getSoundManager() != null) {
             mc.getSoundManager().play(SimpleSoundInstance.forUI(UI_SOUND, 1.0F));
         }
-    }
-
-    /** Folder tujuan unduhan = folder musik utama (dibuat jika belum ada). */
-    static Path downloadDir() {
-        Path folder = CONFIG.musicFolder.isBlank()
-                ? FabricLoader.getInstance().getGameDir().resolve("xfive-music")
-                : Path.of(CONFIG.musicFolder.strip());
-        return folder;
     }
 
     /** Folder sementara untuk lagu "Play online". Dikosongkan setiap game mulai. */
@@ -115,6 +102,7 @@ public final class XFiveLiveClient implements ClientModInitializer {
         MUSIC.setVolume(CONFIG.defaultVolume);
         MUSIC.setRepeatMode(CONFIG.repeatMode);
         MUSIC.setShuffle(CONFIG.shuffle);
+        MUSIC.setOnlineQueue(ONLINE);
 
         KeyMapping.Category category =
                 KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MOD_ID, "main"));
@@ -142,7 +130,7 @@ public final class XFiveLiveClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> onTick());
         ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> {
             MUSIC.shutdown();
-            DOWNLOADS.shutdown();
+            ONLINE.shutdown();
         });
     }
 
@@ -209,6 +197,12 @@ public final class XFiveLiveClient implements ClientModInitializer {
         }
         musicFolder = folder;
         return MUSIC.refresh(musicSources(folder));
+    }
+
+    /** Memutar lagu Library nomor i dan melupakan antrean online. */
+    public static void playLocal(int index) {
+        ONLINE.stopOnline();
+        MUSIC.playIndex(index);
     }
 
     /** Mode ulang berikutnya (mati, semua, satu), disimpan ke config. */

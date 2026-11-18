@@ -47,7 +47,7 @@ public final class Downloader {
                     throw e;
                 }
             } catch (java.nio.file.FileSystemException e) {
-                throw new DownloadException("Cannot save to the music folder ("
+                throw new DownloadException("Cannot save to the cache folder ("
                         + (e.getReason() != null ? e.getReason() : e.getClass().getSimpleName()) + ")", false);
             } catch (IOException e) {
                 if (attempt >= retries) {

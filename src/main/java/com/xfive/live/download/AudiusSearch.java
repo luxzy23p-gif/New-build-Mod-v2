@@ -5,13 +5,11 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
  * Pencarian lagu di Audius (platform musik terbuka dengan API publik untuk aplikasi pihak ketiga).
- * Setiap hasil adalah SATU lagu lengkap. Lagu boleh diputar (stream); disimpan ke Library
- * hanya jika pengunggahnya mengizinkan unduhan (is_downloadable).
+ * Setiap hasil adalah SATU lagu lengkap yang boleh diputar (stream), tanpa disimpan.
  */
 public final class AudiusSearch {
     /** Alamat API (bisa diganti untuk pengujian). */
@@ -19,17 +17,6 @@ public final class AudiusSearch {
     public static final String APP_NAME = "XFiveLive";
 
     private AudiusSearch() {
-    }
-
-    public record Song(String id, String title, String artist, int seconds, boolean downloadable) {
-        /** Alamat audio resmi dari API (mengalihkan ke server konten). */
-        public String streamUrl() {
-            return host + "/v1/tracks/" + URLEncoder.encode(id, StandardCharsets.UTF_8) + "/stream?app_name=" + APP_NAME;
-        }
-
-        public String duration() {
-            return seconds <= 0 ? "" : String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60);
-        }
     }
 
     public static String cleanQuery(String q) {
@@ -81,10 +68,9 @@ public final class AudiusSearch {
                 }
                 Map<String, Object> user = MiniJson.asMap(d.get("user"));
                 String artist = user == null ? null : MiniJson.str(user.get("name"));
-                boolean dl = Boolean.TRUE.equals(d.get("is_downloadable")) && !Boolean.TRUE.equals(d.get("is_download_gated"));
                 out.add(new Song(id, cleanTitle(MiniJson.str(d.get("title"))),
                         artist == null || artist.isBlank() ? "Unknown Artist" : artist.strip(),
-                        (int) MiniJson.num(d.get("duration"), 0), dl));
+                        (int) MiniJson.num(d.get("duration"), 0), ""));
             }
         } catch (IllegalArgumentException e) {
             throw new DownloadException("Search answer was not understood", false);

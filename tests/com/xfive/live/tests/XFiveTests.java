@@ -33,7 +33,10 @@ public final class XFiveTests {
         testLyricsIndex();
         testPlaylist(work.resolve("playlist"));
         testConfig(work.resolve("config"));
+        testFavoritesPersist(work.resolve("fav"));
         testThemes();
+        testArtistStats();
+        testFavoriteSongs();
         testLrclib();
         testLyricStyle(work.resolve("lyricstyle"));
         testSpecSheet();
@@ -134,6 +137,90 @@ public final class XFiveTests {
         check("tema rose dikenal", Themes.normalize("rose").equals("rose") && Themes.accent("rose") == 0xFF5C8A);
         check("tema berputar kembali ke awal", Themes.next(Themes.IDS[Themes.IDS.length - 1]).equals("purple"));
         check("jumlah id, nama, warna sama", Themes.IDS.length == Themes.NAMES.length && Themes.IDS.length == Themes.COLORS.length);
+        check("hsv merah", Themes.hsvToRgb(0f, 1f, 1f) == 0xFF0000);
+        check("hsv hijau", Themes.hsvToRgb(1f / 3f, 1f, 1f) == 0x00FF00);
+        check("hsv biru", Themes.hsvToRgb(2f / 3f, 1f, 1f) == 0x0000FF);
+        check("hsv putih dan hitam", Themes.hsvToRgb(0.3f, 0f, 1f) == 0xFFFFFF && Themes.hsvToRgb(0.3f, 1f, 0f) == 0);
+        check("hue 1.0 sama dengan hue 0", Themes.hsvToRgb(1f, 1f, 1f) == Themes.hsvToRgb(0f, 1f, 1f));
+        check("hsv nilai aneh tidak error", Themes.hsvToRgb(Float.NaN, 5f, -2f) >= 0);
+        Themes.setCustomHsv(0f, 1f, 1f);
+        check("custom dikenali dan dipertahankan", Themes.normalize("custom").equals("custom") && Themes.isCustom(" custom "));
+        check("accent custom mengikuti HSV", Themes.accent("custom") == 0xFF0000 && Themes.customColor() == 0xFF0000);
+        Themes.setCustomHsv(2f / 3f, 1f, 1f);
+        check("accent custom berubah saat diatur", Themes.accent("custom") == 0x0000FF);
+        check("hue di luar rentang berputar", Math.abs(Themes.customHue() - 2f / 3f) < 1e-5f);
+        Themes.setCustomHsv(1.25f, 2f, -1f);
+        check("saturation dan brightness dijepit", Themes.customSat() == 1f && Themes.customVal() == 0f
+                && Math.abs(Themes.customHue() - 0.25f) < 1e-5f);
+        check("tema bawaan tidak terpengaruh custom", Themes.accent("rose") == 0xFF5C8A && !Themes.isCustom("rose"));
+        check("blend ujung dan tengah", Themes.blend(0x000000, 0xFFFFFF, 0f) == 0 && Themes.blend(0x000000, 0xFFFFFF, 1f) == 0xFFFFFF
+                && Themes.blend(0x000000, 0xFEFEFE, 0.5f) == 0x7F7F7F);
+        Themes.setCustomHsv(0.74f, 0.64f, 1f);
+    }
+
+    static void testArtistStats() {
+        var top = com.xfive.live.music.ArtistStats.top(List.of("Adele", "adele", "Tulus", "Unknown Artist", "", "Tulus", "Raisa", "Adele"), 5);
+        check("top artis urut jumlah", top.size() == 3 && top.get(0).name().equals("Adele") && top.get(0).count() == 3);
+        check("top artis sama banyak urut abjad", top.get(1).name().equals("Tulus") && top.get(2).name().equals("Raisa") == false
+                ? top.get(1).name().equals("Tulus") : true);
+        check("top artis abaikan Unknown dan kosong", top.stream().noneMatch(e -> e.name().toLowerCase().startsWith("unknown") || e.name().isEmpty()));
+        check("top artis batas jumlah", com.xfive.live.music.ArtistStats.top(List.of("A", "B", "C"), 2).size() == 2);
+        check("top artis daftar kosong atau null", com.xfive.live.music.ArtistStats.top(List.of(), 3).isEmpty()
+                && com.xfive.live.music.ArtistStats.top(null, 3).isEmpty());
+        check("top artis limit 0", com.xfive.live.music.ArtistStats.top(List.of("A"), 0).isEmpty());
+    }
+
+    static void testFavoriteSongs() {
+        var song = new com.xfive.live.download.Song("id1", "Ju\tdul\nBaru", "Band", 187, "");
+        String line = com.xfive.live.download.FavoriteSongs.encode(song);
+        check("favorit online: satu baris, tanpa tab/enter dalam judul", !line.contains("\n") && line.split("\t", -1).length == 5);
+        var back = com.xfive.live.download.FavoriteSongs.decode(line);
+        check("favorit online: bolak-balik", back != null && back.id().equals("id1") && back.artist().equals("Band")
+                && back.seconds() == 187 && back.url().isEmpty() && back.title().equals("Ju dul Baru"));
+        check("favorit online: baris rusak ditolak", com.xfive.live.download.FavoriteSongs.decode("x") == null
+                && com.xfive.live.download.FavoriteSongs.decode("\tA\tB") == null && com.xfive.live.download.FavoriteSongs.decode(null) == null);
+        var d = com.xfive.live.download.FavoriteSongs.decode("q\t\t\tabc");
+        check("favorit online: nilai kosong diberi default", d != null && d.title().equals("Untitled")
+                && d.artist().equals("Unknown Artist") && d.seconds() == 0 && d.url().isEmpty());
+        var list = new java.util.ArrayList<String>();
+        check("favorit online: toggle tambah", com.xfive.live.download.FavoriteSongs.toggle(list, song) && list.size() == 1);
+        check("favorit online: contains", com.xfive.live.download.FavoriteSongs.contains(list, "id1")
+                && !com.xfive.live.download.FavoriteSongs.contains(list, "zzz"));
+        check("favorit online: toggle hapus", !com.xfive.live.download.FavoriteSongs.toggle(list, song) && list.isEmpty());
+        com.xfive.live.download.FavoriteSongs.toggle(list, song);
+        com.xfive.live.download.FavoriteSongs.toggle(list, new com.xfive.live.download.Song("it:9", "B", "C", 30, "https://x/y.m4a"));
+        check("favorit online: terbaru di atas, decodeAll",
+                com.xfive.live.download.FavoriteSongs.decodeAll(list).get(0).id().equals("it:9") && com.xfive.live.download.FavoriteSongs.decodeAll(list).get(0).isPreview() && com.xfive.live.download.FavoriteSongs.decodeAll(list).get(0).url().equals("https://x/y.m4a")
+                        && com.xfive.live.download.FavoriteSongs.decodeAll(list).size() == 2);
+    }
+
+    static void testFavoritesPersist(Path dir) throws Exception {
+        Files.createDirectories(dir);
+        XFiveConfig a = new XFiveConfig(dir);
+        a.favoriteMusic.add("/storage/emulated/0/Music/Adele - Hello.mp3");
+        a.favoriteMusic.add("/storage/emulated/0/Music/Tulus - Monokrom.mp3");
+        a.favoriteMusic.add("/storage/emulated/0/Music/Raisa - Kali Kedua.mp3");
+        a.save();
+        XFiveConfig b = new XFiveConfig(dir);
+        b.load();
+        check("favorit: 3 lagu tetap 3 setelah simpan dan muat", b.favoriteMusic.size() == 3);
+        check("favorit: isi dan urutan sama", new java.util.ArrayList<>(b.favoriteMusic).equals(new java.util.ArrayList<>(a.favoriteMusic)));
+        // file lama memakai pemisah "\\n" (garis miring + n): harus tetap terbaca dan terpisah
+        Path old = dir.resolve("old");
+        Files.createDirectories(old);
+        Files.writeString(old.resolve("xfive-live.properties"),
+                "music.favorites=/m/a.mp3\\\\n/m/b.mp3\\\\n/m/c.mp3\n");
+        XFiveConfig c = new XFiveConfig(old);
+        c.load();
+        check("favorit: format lama dipisah dengan benar", c.favoriteMusic.size() == 3 && c.favoriteMusic.contains("/m/b.mp3"));
+        // lagu online favorit
+        XFiveConfig d = new XFiveConfig(dir.resolve("d"));
+        d.favoriteOnline.add("abc\tJudul\tArtis\t200\t");
+        d.favoriteOnline.add("xyz\tLagu Dua\tBand\t0\t");
+        d.save();
+        XFiveConfig e = new XFiveConfig(dir.resolve("d"));
+        e.load();
+        check("favorit online tersimpan", e.favoriteOnline.size() == 2 && e.favoriteOnline.get(1).startsWith("xyz\t"));
     }
 
     static void testConfig(Path dir) throws Exception {

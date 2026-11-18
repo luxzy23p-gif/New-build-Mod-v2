@@ -17,7 +17,11 @@ public final class MusicManager {
     public static final int REPEAT_ALL = 1;
     public static final int REPEAT_ONE = 2;
     private static final long RESTART_THRESHOLD_MS = 3_000L;
+    private static final long ADVANCE_WAIT_NANOS = 25_000_000_000L;
 
+    private volatile OnlineQueue onlineQueue;
+    /** Setelah antrean online diminta memutar lagu berikutnya, tick tidak meminta lagi sampai batas waktu ini. */
+    private volatile long advanceUntilNanos;
     private final PlaylistManager playlist = new PlaylistManager();
     private final AudioPlayer player = new AudioPlayer();
     private final Random random = new Random();
@@ -87,8 +91,13 @@ public final class MusicManager {
 
     /** Memutar lagu dari file sementara (Play online). Tidak masuk Library; Next/Prev kembali ke Library. */
     public void playOnline(PlaylistManager.Track track) {
+        advanceUntilNanos = 0L;
         online = track;
         requestLoad(track);
+    }
+
+    public void setOnlineQueue(OnlineQueue queue) {
+        onlineQueue = queue;
     }
 
     /** True jika lagu yang aktif berasal dari Play online. */
@@ -102,6 +111,7 @@ public final class MusicManager {
 
     /** Memutar lagu Library nomor i (menggantikan lagu online jika ada). */
     public void playIndex(int i) {
+        advanceUntilNanos = 0L;
         online = null;
         if (playlist.select(i)) {
             playCurrent();
@@ -153,6 +163,11 @@ public final class MusicManager {
 
     public void next() {
         if (online != null) {
+            OnlineQueue q = onlineQueue;
+            if (q != null && q.next(shuffle, repeatMode == REPEAT_ALL)) {
+                advanceUntilNanos = System.nanoTime() + ADVANCE_WAIT_NANOS;
+                return;
+            }
             online = null;
             if (playlist.size() > 0) {
                 playCurrent();
@@ -179,6 +194,11 @@ public final class MusicManager {
 
     public void previous() {
         if (online != null) {
+            OnlineQueue q = onlineQueue;
+            if (player.positionMs() <= RESTART_THRESHOLD_MS && q != null && q.previous()) {
+                advanceUntilNanos = System.nanoTime() + ADVANCE_WAIT_NANOS;
+                return;
+            }
             player.seekMs(0L);
             return;
         }
@@ -221,6 +241,14 @@ public final class MusicManager {
             return;
         }
         if (online != null) {
+            if (System.nanoTime() < advanceUntilNanos) {
+                return; // lagu berikutnya sedang dicari/dimuat
+            }
+            OnlineQueue q = onlineQueue;
+            if (q != null && q.next(shuffle, repeatMode == REPEAT_ALL)) {
+                advanceUntilNanos = System.nanoTime() + ADVANCE_WAIT_NANOS;
+                return;
+            }
             player.stop();
             status = "Selesai";
             return;

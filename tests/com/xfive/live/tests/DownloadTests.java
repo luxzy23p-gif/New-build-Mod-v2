@@ -5,7 +5,10 @@ import com.sun.net.httpserver.HttpServer;
 import com.xfive.live.download.AudioSniffer;
 import com.xfive.live.download.CacheCleaner;
 import com.xfive.live.download.DownloadJob;
-import com.xfive.live.download.DownloadManager;
+import com.xfive.live.download.OnlineManager;
+import com.xfive.live.download.ItunesSearch;
+import com.xfive.live.download.PlayQueue;
+import com.xfive.live.download.Song;
 import com.xfive.live.download.FileNames;
 import com.xfive.live.download.HitCharts;
 import com.xfive.live.download.MiniJson;
@@ -140,11 +143,11 @@ final class DownloadTests {
                 + "{\"id\":\"nostream\",\"title\":\"X\",\"is_streamable\":false},"
                 + "{\"id\":\"noaccess\",\"title\":\"X\",\"access\":{\"stream\":false}},"
                 + "{\"title\":\"no id\"}]}";
-        List<AudiusSearch.Song> songs = AudiusSearch.parse(aj);
+        List<Song> songs = AudiusSearch.parse(aj);
         ok("audius keeps only streamable songs", songs.size() == 2 && songs.get(0).id().equals("L5WaY") && songs.get(1).id().equals("dl1"));
         ok("audius fields", songs.get(0).title().equals("Ari Lasso Cinta") && songs.get(0).artist().equals("Kamilla")
-                && songs.get(0).seconds() == 258 && "4:18".equals(songs.get(0).duration()) && !songs.get(0).downloadable());
-        ok("audius downloadable + fallbacks", songs.get(1).downloadable() && songs.get(1).seconds() == 65 && "1:05".equals(songs.get(1).duration()));
+                && songs.get(0).seconds() == 258 && "4:18".equals(songs.get(0).duration()) && songs.get(0).url().isEmpty() && !songs.get(0).isPreview());
+        ok("audius fallbacks", songs.get(1).seconds() == 65 && "1:05".equals(songs.get(1).duration()));
         ok("audius stream url", songs.get(0).streamUrl().equals("https://api.audius.co/v1/tracks/L5WaY/stream?app_name=XFiveLive"));
         ok("audius empty list", AudiusSearch.parse("{\"data\":[]}").isEmpty());
         boolean b1 = false;
@@ -161,6 +164,41 @@ final class DownloadTests {
         }
         ok("audius bad answers rejected", b1 && b2);
 
+        List<Song> its = ItunesSearch.parse("{\"results\":[{\"trackId\":5,\"trackName\":\"A\",\"artistName\":\"B\",\"previewUrl\":\"https://x/p.m4a\"},"
+                + "{\"trackId\":6,\"trackName\":\"NoPreview\"},{\"trackName\":\"NoId\",\"previewUrl\":\"u\"}]}");
+        ok("itunes parse keeps only songs with a preview", its.size() == 1 && its.get(0).id().equals("it:5") && its.get(0).isPreview()
+                && its.get(0).streamUrl().equals("https://x/p.m4a") && "0:30".equals(its.get(0).duration()) && its.get(0).seconds() == 30);
+        boolean it1 = false;
+        try {
+            ItunesSearch.parse("<html>");
+        } catch (IOException e) {
+            it1 = true;
+        }
+        ok("itunes bad answer rejected", it1 && ItunesSearch.searchUrl("a b", 5).contains("term=a+b") && ItunesSearch.searchUrl("a b", 5).contains("limit=5"));
+
+        PlayQueue<String> pq = new PlayQueue<>(new java.util.Random(1));
+        ok("queue starts empty", !pq.active() && pq.current() == null && pq.advance(false, true) == null && pq.back() == null);
+        pq.set(List.of("a", "b", "c"), 1);
+        ok("queue current and index", pq.active() && "b".equals(pq.current()) && pq.index() == 1 && pq.size() == 3);
+        ok("queue advance and back", "c".equals(pq.advance(false, false)) && pq.advance(false, false) == null && "c".equals(pq.current())
+                && "b".equals(pq.back()) && "a".equals(pq.back()) && pq.back() == null && "a".equals(pq.current()));
+        pq.set(List.of("a", "b", "c"), 2);
+        ok("queue wraps", "a".equals(pq.advance(false, true)) && pq.index() == 0);
+        boolean sh = true;
+        for (int i = 0; i < 40; i++) {
+            String before = pq.current();
+            String n = pq.advance(true, false);
+            sh &= n != null && !n.equals(before);
+        }
+        ok("queue shuffle never repeats the same song", sh);
+        pq.set(List.of("x"), 0);
+        ok("queue single item shuffle ends", pq.advance(true, false) == null && "x".equals(pq.advance(true, true)));
+        pq.set(List.of("a"), 5);
+        ok("queue bad start = inactive", !pq.active());
+        pq.set(List.of("a", "b"), 0);
+        pq.clear();
+        ok("queue clear", !pq.active() && pq.size() == 0);
+
         String cj = "{\"feed\":{\"results\":[{\"name\":\"Stuck\",\"artistName\":\"LANY\",\"id\":\"1\"},"
                 + "{\"name\":\"Teh Hijau\",\"artistName\":\"Tulus\"},{\"artistName\":\"no name\"},"
                 + "{\"name\":\"BbY WOW\",\"artistName\":\"KAROL G, Judeline & rusowsky\"}]}}";
@@ -175,17 +213,17 @@ final class DownloadTests {
             c1 = true;
         }
         ok("chart bad answer rejected", c1);
-        List<AudiusSearch.Song> cand = List.of(
-                new AudiusSearch.Song("1", "Teh Hijau Remix Cover", "Random Guy", 100, false),
-                new AudiusSearch.Song("2", "Teh Hijau (Official Audio)", "Tulus", 100, false),
-                new AudiusSearch.Song("3", "Something else", "Tulus", 100, false));
+        List<Song> cand = List.of(
+                new Song("1", "Teh Hijau Remix Cover", "Random Guy", 100, ""),
+                new Song("2", "Teh Hijau (Official Audio)", "Tulus", 100, ""),
+                new Song("3", "Something else", "Tulus", 100, ""));
         ok("match needs title and artist", HitCharts.bestMatch(hits.get(1), cand) == cand.get(1));
         ok("match refuses wrong songs", HitCharts.bestMatch(hits.get(0), cand) == null
                 && HitCharts.bestMatch(new HitCharts.Hit("Teh Hijau", "Tulus"), List.of(cand.get(0))) == null);
         ok("match by artist in title", HitCharts.bestMatch(new HitCharts.Hit("Stuck", "LANY"),
-                List.of(new AudiusSearch.Song("9", "LANY - Stuck", "uploader", 90, false))) != null);
+                List.of(new Song("9", "LANY - Stuck", "uploader", 90, ""))) != null);
         ok("match ignores case and brackets", HitCharts.bestMatch(new HitCharts.Hit("Stuck (feat. X)", "LANY"),
-                List.of(new AudiusSearch.Song("9", "stuck!", "lany", 90, false))) != null);
+                List.of(new Song("9", "stuck!", "lany", 90, ""))) != null);
     }
 
     // ---------------------------------------------------------------
@@ -218,12 +256,19 @@ final class DownloadTests {
             ex.getResponseHeaders().add("Location", "/ok.mp3");
             send(ex, 302, null, new byte[0]);
         });
-        s.createContext("/api/v2/id/music/most-played/25/songs.json", ex -> send(ex, 200, "application/json",
+        s.createContext("/api/v2/id/music/most-played/50/songs.json", ex -> send(ex, 200, "application/json",
                 "{\"feed\":{\"results\":[{\"name\":\"Teh Hijau\",\"artistName\":\"Tulus\"},{\"name\":\"Nope Song\",\"artistName\":\"Nobody\"}]}}".getBytes(StandardCharsets.UTF_8)));
-        s.createContext("/api/v2/us/music/most-played/25/songs.json", ex -> send(ex, 500, "text/plain", "x".getBytes(StandardCharsets.UTF_8)));
+        s.createContext("/api/v2/us/music/most-played/50/songs.json", ex -> send(ex, 500, "text/plain", "x".getBytes(StandardCharsets.UTF_8)));
         s.createContext("/v1/tracks/search", ex -> send(ex, 200, "application/json",
                 ("{\"data\":[{\"id\":\"zz\",\"title\":\"Unrelated\",\"user\":{\"name\":\"Bob\"}},"
                         + "{\"id\":\"ok\",\"title\":\"Teh Hijau (Official)\",\"user\":{\"name\":\"Tulus\"},\"duration\":200}]}").getBytes(StandardCharsets.UTF_8)));
+        s.createContext("/search", ex -> {
+            String me = "http://127.0.0.1:" + ex.getLocalAddress().getPort();
+            send(ex, 200, "application/json", ("{\"resultCount\":3,\"results\":["
+                    + "{\"trackId\":77,\"trackName\":\"Nope Song\",\"artistName\":\"Nobody\",\"previewUrl\":\"" + me + "/ok.mp3\"},"
+                    + "{\"trackId\":78,\"trackName\":\"Other\",\"artistName\":\"Zed\",\"previewUrl\":\"" + me + "/ok.mp3\"},"
+                    + "{\"trackId\":79,\"trackName\":\"No preview\",\"artistName\":\"Zed\"}]}").getBytes(StandardCharsets.UTF_8));
+        });
         s.createContext("/ok.mp3", ex -> send(ex, 200, "audio/mpeg", mp3(20_000)));
         s.createContext("/redir", ex -> {
             ex.getResponseHeaders().add("Location", "/ok.mp3");
@@ -309,7 +354,7 @@ final class DownloadTests {
         String base = "http://127.0.0.1:" + s.getAddress().getPort();
         Path dir = work.resolve("music");
         List<DownloadJob> saved = new CopyOnWriteArrayList<>();
-        DownloadManager dm = new DownloadManager(() -> dir, 1_000_000, 2, 1, 50, saved::add);
+        OnlineManager dm = new OnlineManager(() -> dir, 1_000_000, 2, 1, 50, saved::add);
         try {
             DownloadJob a = dm.enqueueUrl(base + "/ok.mp3", null);
             waitFor(a, 5000);
@@ -322,8 +367,8 @@ final class DownloadTests {
 
             DownloadJob a2 = dm.enqueueUrl(base + "/ok.mp3", null);
             waitFor(a2, 5000);
-            ok("dl same name not overwritten", a2.state == DownloadJob.State.DONE
-                    && Files.exists(dir.resolve("ok (2).mp3")) && Files.exists(dir.resolve("ok.mp3")));
+            ok("dl same link again uses the cached file", a2.state == DownloadJob.State.DONE && a2.result.equals(a.result)
+                    && !Files.exists(dir.resolve("ok (2).mp3")));
 
             DownloadJob r = dm.enqueueUrl(base + "/redir", "Redirected");
             waitFor(r, 5000);
@@ -382,7 +427,7 @@ final class DownloadTests {
 
             Path blocker = work.resolve("iamafile");
             Files.writeString(blocker, "x");
-            DownloadManager dm2 = new DownloadManager(() -> blocker.resolve("sub"), 1_000_000, 1, 1, 50, j -> { });
+            OnlineManager dm2 = new OnlineManager(() -> blocker.resolve("sub"), 1_000_000, 1, 1, 50, j -> { });
             try {
                 DownloadJob nw = dm2.enqueueUrl(base + "/ok.mp3", null);
                 waitFor(nw, 5000);
@@ -391,82 +436,109 @@ final class DownloadTests {
                 dm2.shutdown();
             }
 
-            // ---- Play online (cache) dan satu lagu ----
+            // ---- putar online (cache) dan satu lagu ----
             Path cache = work.resolve("cache");
             List<DownloadJob> ready = new CopyOnWriteArrayList<>();
-            List<DownloadJob> savedHere = new CopyOnWriteArrayList<>();
-            DownloadManager dm3 = new DownloadManager(() -> dir, () -> cache, 1_000_000, 2, 1, 50, savedHere::add, ready::add);
+            OnlineManager dm3 = new OnlineManager(() -> cache, 1_000_000, 2, 1, 50, ready::add);
             try {
                 AudiusSearch.host = base;
-                AudiusSearch.Song song = new AudiusSearch.Song("ok", "Nice Song", "Cool Artist", 200, true);
-                DownloadJob pj = dm3.enqueueSong(song, true);
-                waitFor(pj, 5000);
-                Thread.sleep(100);
-                ok("play: done + callback", pj.state == DownloadJob.State.DONE && ready.contains(pj) && savedHere.isEmpty());
-                ok("play: file is in cache, not library", pj.result != null && pj.result.getParent().equals(cache)
+                Song song = new Song("ok", "Nice Song", "Cool Artist", 200, "");
+                dm3.playSong(song);
+                long end3 = System.currentTimeMillis() + 5000;
+                while (ready.isEmpty() && System.currentTimeMillis() < end3) {
+                    Thread.sleep(20);
+                }
+                DownloadJob pj = ready.isEmpty() ? null : ready.get(0);
+                ok("play: ready callback", pj != null && pj.state == DownloadJob.State.DONE);
+                ok("play: file is in the cache, named Artist - Title", pj != null && pj.result.getParent().equals(cache)
                         && pj.result.getFileName().toString().equals("Cool Artist - Nice Song.mp3"));
-                ok("play: metadata carried", "Cool Artist".equals(pj.artist) && "Nice Song".equals(pj.songTitle));
-                int hitsBefore = ready.size();
-                DownloadJob pj2 = dm3.enqueueSong(song, true);
-                ok("play again uses cache instantly", pj2.state == DownloadJob.State.DONE && ready.size() == hitsBefore + 1
-                        && pj2.result.equals(pj.result));
+                ok("play: now song set, no message", dm3.nowSong() != null && dm3.nowSong().id().equals("ok") && dm3.message().isEmpty());
+                int before3 = ready.size();
+                dm3.playSong(song);
+                ok("play again uses cache instantly", ready.size() == before3 + 1 && ready.get(before3).result.equals(pj.result));
                 long cacheFiles;
                 try (var st = Files.list(cache)) {
                     cacheFiles = st.count();
                 }
                 ok("play again does not duplicate file", cacheFiles == 1);
-
-                DownloadJob gj = dm3.enqueueSong(song, false);
-                waitFor(gj, 5000);
-                Thread.sleep(100);
-                ok("get: saved to library with artist - title name", gj.state == DownloadJob.State.DONE
-                        && gj.result.getParent().equals(dir) && gj.result.getFileName().toString().startsWith("Cool Artist - Nice Song")
-                        && savedHere.contains(gj));
-                ok("get: only the clicked song", Files.list(dir).filter(p -> p.getFileName().toString().startsWith("Cool Artist")).count() == 1);
-                AudiusSearch.Song locked = new AudiusSearch.Song("ok", "Locked", "Someone", 100, false);
-                ok("get: refused when artist does not allow downloads", dm3.enqueueSong(locked, false) == null);
+                int before4 = ready.size();
+                dm3.playSong(new Song("it:5", "Prev Song", "Prev Artist", 30, base + "/ok.mp3"));
+                end3 = System.currentTimeMillis() + 5000;
+                while (ready.size() == before4 && System.currentTimeMillis() < end3) {
+                    Thread.sleep(20);
+                }
+                ok("preview plays and says it is a 30 s preview", ready.size() == before4 + 1 && dm3.nowSong().isPreview()
+                        && dm3.message().contains("30 s"));
+                dm3.stopOnline();
+                ok("stopOnline forgets the song", dm3.nowSong() == null && dm3.nowEntry() == null && dm3.message().isEmpty());
+                ok("no next after stopOnline", !dm3.next(false, true) && !dm3.previous());
             } finally {
                 AudiusSearch.host = "https://api.audius.co";
                 dm3.shutdown();
             }
 
-            // ---- tangga lagu ----
+            // ---- tangga lagu, antrean, cadangan cuplikan ----
             HitCharts.base = base;
             AudiusSearch.host = base;
+            ItunesSearch.host = base;
             List<DownloadJob> ready2 = new CopyOnWriteArrayList<>();
-            DownloadManager dm4 = new DownloadManager(() -> dir, () -> work.resolve("cache2"), 1_000_000, 1, 1, 50, j -> { }, ready2::add);
+            OnlineManager dm4 = new OnlineManager(() -> work.resolve("cache2"), 1_000_000, 1, 1, 50, ready2::add);
             try {
-                dm4.loadHits(false);
+                ok("charts list", OnlineManager.CHARTS.size() >= 10 && OnlineManager.chart("id") != null && OnlineManager.chart("zz") == null);
+                dm4.loadChart("id", false);
+                dm4.loadChart("us", false);
                 long end = System.currentTimeMillis() + 5000;
-                while (dm4.hitsIndo().isEmpty() && System.currentTimeMillis() < end) {
+                while ((dm4.chartHits("id").isEmpty() || dm4.chartMessage("us").equals("Loading...")) && System.currentTimeMillis() < end) {
                     Thread.sleep(20);
                 }
                 Thread.sleep(100);
-                ok("hits load (one chart may fail)", dm4.hitsIndo().size() == 2 && dm4.hitsWest().isEmpty() && dm4.hitsMessage().isEmpty());
-                dm4.playHit(dm4.hitsIndo().get(0));
+                ok("chart loads", dm4.chartHits("id").size() == 2 && dm4.chartMessage("id").isEmpty());
+                ok("failed chart explains", dm4.chartHits("us").isEmpty() && dm4.chartMessage("us").startsWith("Could not"));
+                List<HitCharts.Hit> hs = dm4.chartHits("id");
+                List<OnlineManager.Entry> q = List.of(OnlineManager.Entry.of(hs.get(0)), OnlineManager.Entry.of(hs.get(1)),
+                        OnlineManager.Entry.of(new HitCharts.Hit("Zzz Missing", "Nobody")),
+                        OnlineManager.Entry.of(new Song("ok", "Last One", "Tulus", 100, "")));
+                dm4.playEntries(q, 0);
                 end = System.currentTimeMillis() + 8000;
                 while (ready2.isEmpty() && System.currentTimeMillis() < end) {
                     Thread.sleep(20);
                 }
-                ok("play hit finds the matching song and plays it", ready2.size() == 1
-                        && ready2.get(0).artist.equals("Tulus") && ready2.get(0).stream);
-                dm4.playHit(dm4.hitsIndo().get(1));
-                end = System.currentTimeMillis() + 5000;
-                while (!dm4.hitMessage().startsWith("Not available") && System.currentTimeMillis() < end) {
+                ok("play hit finds the full song and plays it", ready2.size() == 1 && ready2.get(0).artist.equals("Tulus")
+                        && !dm4.nowSong().isPreview() && dm4.isCurrent(q.get(0)));
+                ok("next goes down the list; no full song -> 30 s preview", dm4.next(false, false));
+                end = System.currentTimeMillis() + 8000;
+                while (ready2.size() < 2 && System.currentTimeMillis() < end) {
                     Thread.sleep(20);
                 }
-                ok("play hit says so when no match", dm4.hitMessage().startsWith("Not available") && ready2.size() == 1);
+                ok("hit without full song plays the Apple preview", ready2.size() == 2 && dm4.nowSong() != null
+                        && dm4.nowSong().isPreview() && dm4.isCurrent(q.get(1)));
+                ok("next skips an unavailable hit automatically", dm4.next(false, false));
+                end = System.currentTimeMillis() + 10000;
+                while (ready2.size() < 3 && System.currentTimeMillis() < end) {
+                    Thread.sleep(20);
+                }
+                ok("auto skip reached the last song", ready2.size() == 3 && dm4.nowSong() != null && dm4.nowSong().id().equals("ok")
+                        && dm4.isCurrent(q.get(3)));
+                ok("end of queue: next false without wrap", !dm4.next(false, false));
+                ok("end of queue: next wraps when asked", dm4.next(false, true));
+                Thread.sleep(300);
+                ok("previous: false at the start of the queue", !dm4.previous());
+                dm4.next(false, false);
+                Thread.sleep(300);
+                ok("previous works inside the queue", dm4.previous());
                 dm4.search("anything");
                 end = System.currentTimeMillis() + 5000;
-                while (dm4.results().isEmpty() && System.currentTimeMillis() < end) {
+                while (dm4.searchState() != OnlineManager.SearchState.DONE && System.currentTimeMillis() < end) {
                     Thread.sleep(20);
                 }
-                ok("search then back to hits", dm4.results().size() == 2 && dm4.hitMessage().isEmpty());
+                ok("search: full songs first, then previews", dm4.results().size() == 4 && !dm4.results().get(0).isPreview()
+                        && dm4.results().get(3).isPreview() && "anything".equals(dm4.searchQuery()));
                 dm4.clearSearch();
-                ok("clear search", dm4.results().isEmpty() && dm4.searchState() == DownloadManager.SearchState.IDLE);
+                ok("clear search", dm4.results().isEmpty() && dm4.searchState() == OnlineManager.SearchState.IDLE);
             } finally {
                 HitCharts.base = "https://rss.marketingtools.apple.com";
                 AudiusSearch.host = "https://api.audius.co";
+                ItunesSearch.host = "https://itunes.apple.com";
                 dm4.shutdown();
             }
 
@@ -509,14 +581,6 @@ final class DownloadTests {
             waitFor(sl, 5000);
             ok("dl cancel state", sl.state == DownloadJob.State.CANCELLED);
             ok("dl cancel removes .part", !Files.exists(dir.resolve("slow.mp3.part")) && !Files.exists(dir.resolve("slow.mp3")));
-
-            long before = dm.jobs().size();
-            dm.retry(nf);
-            ok("retry replaces job", dm.jobs().size() == before && !dm.jobs().contains(nf));
-            dm.clearFinished();
-            Thread.sleep(300);
-            dm.clearFinished();
-            ok("clear finished", dm.jobs().stream().allMatch(j -> !j.finished()));
 
             int v = dm.version();
             DownloadJob dup1 = dm.enqueueUrl(base + "/slow.mp3", null);

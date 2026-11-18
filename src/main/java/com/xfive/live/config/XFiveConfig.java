@@ -38,6 +38,8 @@ public final class XFiveConfig {
     public int repeatMode = 1;          // 0 mati, 1 semua, 2 satu
     public boolean shuffle = false;
     public final Set<String> favoriteMusic = new LinkedHashSet<>();
+    /** Lagu online favorit (tanpa unduh): satu baris per lagu, lihat download.FavoriteSongs. */
+    public final java.util.List<String> favoriteOnline = new java.util.ArrayList<>();
 
     // Lyrics
     public boolean enableLyrics = true;
@@ -63,6 +65,9 @@ public final class XFiveConfig {
     // Appearance
     public String theme = "purple"; // lihat Themes.IDS
     /** UI skin: glass (Liquid Glass Lite) atau dark_music (matte music-player style). */
+    public float customHue = 0.74f;   // warna kustom (tema "custom")
+    public float customSat = 0.64f;
+    public float customVal = 1.00f;
     public String themeStyle = "glass";
     public float customTransparency = 0.85f;
     public boolean animations = true;
@@ -124,7 +129,13 @@ public final class XFiveConfig {
         shuffle = bool(p, "music.shuffle", shuffle);
         favoriteMusic.clear();
         String savedFavorites = p.getProperty("music.favorites", "");
-        for (String item : savedFavorites.split("\\n")) if (!item.isBlank()) favoriteMusic.add(item.strip());
+        // Pemisah baru = baris baru. File lama memakai "\\n" (garis miring + n) yang dulu tidak terbaca
+        // dengan benar, sehingga beberapa favorit tergabung jadi satu dan hilang dari daftar.
+        for (String item : savedFavorites.split("\\r?\\n|\\\\n")) if (!item.isBlank()) favoriteMusic.add(item.strip());
+        favoriteOnline.clear();
+        for (String item : p.getProperty("music.favoriteOnline", "").split("\\r?\\n")) {
+            if (!item.isBlank()) favoriteOnline.add(item.strip());
+        }
 
         enableLyrics = bool(p, "lyrics.enable", enableLyrics);
         autoLyrics = bool(p, "lyrics.auto", autoLyrics);
@@ -140,6 +151,10 @@ public final class XFiveConfig {
         lyricsOffsetMs = integer(p, "lyrics.offsetMs", lyricsOffsetMs, -3000, 3000);
 
         theme = Themes.normalize(p.getProperty("appearance.theme", theme));
+        customHue = flt(p, "appearance.customHue", customHue, 0f, 1f);
+        customSat = flt(p, "appearance.customSat", customSat, 0f, 1f);
+        customVal = flt(p, "appearance.customVal", customVal, 0f, 1f);
+        applyCustomColor();
         themeStyle = "dark_music".equals(p.getProperty("appearance.style", themeStyle).strip()) ? "dark_music" : "glass";
         customTransparency = flt(p, "appearance.transparency", customTransparency, 0.1f, 1f);
         animations = bool(p, "appearance.animations", animations);
@@ -150,6 +165,11 @@ public final class XFiveConfig {
             pos[0] = integer(p, "hud." + key + ".x", pos[0], -10_000, 10_000);
             pos[1] = integer(p, "hud." + key + ".y", pos[1], -10_000, 10_000);
         }
+    }
+
+    /** Menyalin warna kustom ke Themes supaya semua bagian UI dan HUD memakainya. */
+    public void applyCustomColor() {
+        Themes.setCustomHsv(customHue, customSat, customVal);
     }
 
     public void save() {
@@ -174,7 +194,8 @@ public final class XFiveConfig {
         put(p, "music.folder", musicFolder);
         put(p, "music.repeat", repeatMode);
         put(p, "music.shuffle", shuffle);
-        put(p, "music.favorites", String.join("\\n", favoriteMusic));
+        put(p, "music.favorites", String.join("\n", favoriteMusic));
+        put(p, "music.favoriteOnline", String.join("\n", favoriteOnline));
 
         put(p, "lyrics.enable", enableLyrics);
         put(p, "lyrics.auto", autoLyrics);
@@ -190,6 +211,9 @@ public final class XFiveConfig {
         put(p, "lyrics.offsetMs", lyricsOffsetMs);
 
         put(p, "appearance.theme", theme);
+        put(p, "appearance.customHue", customHue);
+        put(p, "appearance.customSat", customSat);
+        put(p, "appearance.customVal", customVal);
         put(p, "appearance.style", themeStyle);
         put(p, "appearance.transparency", customTransparency);
         put(p, "appearance.animations", animations);

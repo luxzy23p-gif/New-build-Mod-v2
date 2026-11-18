@@ -8,7 +8,7 @@ import java.util.Map;
 
 /**
  * Tangga lagu terpopuler saat ini (Apple Music "Most Played") per negara: id = Indonesia, us = barat.
- * Hanya daftar judul dan artis; audionya dicari terpisah di Audius, jadi tidak semua lagu tersedia.
+ * Hanya daftar judul dan artis; audionya dicari terpisah (Audius penuh, atau cuplikan 30 detik dari Apple).
  */
 public final class HitCharts {
     /** Alamat dasar (bisa diganti untuk pengujian). */
@@ -75,24 +75,29 @@ public final class HitCharts {
                 .replaceAll("[^\\p{L}\\p{N}]+", " ").strip();
     }
 
-    /**
-     * Memilih hasil Audius yang paling cocok dengan lagu tangga: judul lagu harus ada di judul hasil,
-     * dan artis utama harus ada di judul atau nama pengunggah. Mengembalikan null jika tidak ada yang cocok
-     * (lebih baik "tidak ada" daripada memutar lagu yang salah).
-     */
-    public static AudiusSearch.Song bestMatch(Hit hit, List<AudiusSearch.Song> songs) {
+    /** Apakah judul dan nama pengunggah/artis sebuah hasil cocok dengan lagu tangga. */
+    public static boolean matches(Hit hit, String title, String who) {
         String name = norm(hit.name());
         String artist = norm(firstArtist(hit.artist()));
         if (name.isEmpty()) {
-            return null;
+            return false;
         }
-        for (AudiusSearch.Song s : songs) {
-            String title = norm(s.title());
-            String who = norm(s.artist());
-            boolean nameOk = (" " + title + " ").contains(" " + name + " ");
-            boolean artistOk = artist.isEmpty() || (" " + title + " " + who + " ").contains(" " + artist + " ")
-                    || who.contains(artist) || artist.contains(who) && !who.isEmpty();
-            if (nameOk && artistOk) {
+        String t = norm(title);
+        String w = norm(who);
+        boolean nameOk = (" " + t + " ").contains(" " + name + " ");
+        boolean artistOk = artist.isEmpty() || (" " + t + " " + w + " ").contains(" " + artist + " ")
+                || w.contains(artist) || artist.contains(w) && !w.isEmpty();
+        return nameOk && artistOk;
+    }
+
+    /**
+     * Memilih hasil yang paling cocok dengan lagu tangga: judul lagu harus ada di judul hasil,
+     * dan artis utama harus ada di judul atau nama pengunggah. Mengembalikan null jika tidak ada yang cocok
+     * (lebih baik "tidak ada" daripada memutar lagu yang salah).
+     */
+    public static Song bestMatch(Hit hit, List<Song> songs) {
+        for (Song s : songs) {
+            if (matches(hit, s.title(), s.artist())) {
                 return s;
             }
         }
