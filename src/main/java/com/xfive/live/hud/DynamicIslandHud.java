@@ -93,7 +93,8 @@ public final class DynamicIslandHud {
         } else if (failed) {
             want = true;
         } else if (c.islandAutoHide) {
-            want = now < hideAt;
+            // Auto-hide only applies while idle/paused; never hide an actively playing track.
+            want = wasPlaying || XFiveLiveClient.MUSIC.isLoading() || now < hideAt;
         } else {
             want = wasPlaying || XFiveLiveClient.MUSIC.isLoading() || (c.islandShowPaused && m.track != null);
         }
@@ -184,7 +185,9 @@ public final class DynamicIslandHud {
                                 String title, String artist, float progress, long posMs, long durMs,
                                 boolean playing, int accent, float alpha, float content) {
         float s = h / (float) CARD_H;
-        Glass.panel(g, x, y, w, h, Math.max(5, u(13, s)), alpha, accent);
+        Glass.roundRect(g, x, y, w, h, Math.max(5, u(13, s)), Glass.argb(0x000000, alpha));
+        Glass.border(g, x, y, w, h, Math.max(5, u(13, s)),
+                Glass.argb(0xFFFFFF, 0.18f * alpha), Glass.argb(0xFFFFFF, 0.06f * alpha));
         if (content <= 0.02f) {
             return;
         }
@@ -263,7 +266,9 @@ public final class DynamicIslandHud {
     /** Menggambar pil kaca: judul, artis, dan garis progres tipis. */
     public static void drawPill(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h,
                                 String title, String sub, float progress, float content, int accent, float alpha) {
-        Glass.panel(g, x, y, w, h, h / 2, alpha, accent);
+        Glass.roundRect(g, x, y, w, h, h / 2, Glass.argb(0x000000, alpha));
+        Glass.border(g, x, y, w, h, h / 2,
+                Glass.argb(0xFFFFFF, 0.18f * alpha), Glass.argb(0xFFFFFF, 0.06f * alpha));
         if (content <= 0.4f) {
             return;
         }
