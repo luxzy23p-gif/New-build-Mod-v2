@@ -249,10 +249,10 @@ public final class OnlineManager implements OnlineQueue {
         }
         try {
             downloader.run(job, cacheDir.get());
-            job.state = DownloadJob.State.DONE;
-            job.message = "Ready";
-            streamCache.put(job.url, job.result);
+            streamCache.put(job.url, job.result); // sebelum DONE, supaya ketukan kedua langsung memakai cache
             CacheCleaner.trim(cacheDir.get(), CACHE_MAX_BYTES, job.result);
+            job.message = "Ready";
+            job.state = DownloadJob.State.DONE;
             notifyReady(job);
         } catch (Downloader.CancelledException e) {
             end(job, DownloadJob.State.CANCELLED, "Cancelled");

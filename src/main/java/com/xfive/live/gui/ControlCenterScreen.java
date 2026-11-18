@@ -244,7 +244,7 @@ public final class ControlCenterScreen extends Screen {
     }
 
     private int[] closeRect() { return new int[] {x1 - 16, py + 10, 16, 16}; }
-    private int[] segRect() { return new int[] {x1 - 16 - 6 - 62, py + 10, 62, 16}; }
+    private int[] segRect() { return new int[] {x1 - 16 - 6 - 78, py + 10, 78, 16}; }
 
     private boolean isListPage() {
         return page == Page.NOW || page == Page.FAVORITES || page == Page.CHARTS || page == Page.SEARCH;
@@ -637,9 +637,9 @@ public final class ControlCenterScreen extends Screen {
                 Glass.mix(Glass.argb(0x3C414A, 0.80f * alpha), Glass.argb(accent, 0.80f * alpha), 0.10f),
                 Glass.mix(Glass.argb(0x22262C, 0.88f * alpha), Glass.argb(accent, 0.88f * alpha), 0.05f));
         // dua bercak warna lembut seperti kaca buram
-        int r = Math.max(18, Math.min(46, ph / 6));
-        Glass.disc(g, x0 + (x1 - x0) / 3, py + ph / 2, r, a(accent, 0.05f));
-        Glass.disc(g, x0 + (x1 - x0) * 2 / 3, py + ph / 2 + r / 2, r, a(Themes.blend(accent, 0x4C8DFF, 0.6f), 0.05f));
+        int r = Math.max(24, Math.min(64, ph / 4));
+        Glass.glow(g, x0 + (x1 - x0) / 3, py + ph / 2, r, accent, 0.16f);
+        Glass.glow(g, x0 + (x1 - x0) * 2 / 3, py + ph / 2 + r / 2, r, Themes.blend(accent, 0x4C8DFF, 0.6f), 0.12f);
         g.fill(px + 16, py + 1, px + pw - 16, py + 2, a(0xFFFFFF, 0.12f));
         Glass.border(g, px, py, pw, ph, 14, a(0xFFFFFF, 0.22f), a(0xFFFFFF, 0.08f));
     }

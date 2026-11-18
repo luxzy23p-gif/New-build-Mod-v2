@@ -3,7 +3,7 @@ package com.xfive.live.render;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
- * Gambar panel gelap yang elegan dan ringan: hanya beberapa fill per panel (tanpa gradien per baris,
+ * Gambar panel gelap yang elegan dan ringan: hanya beberapa fill per panel (gradasi dibuat dari beberapa pita saja,
  * tanpa shader, tanpa tekstur, tanpa alokasi per frame), jadi aman untuk HP.
  * BELUM DIVERIFIKASI terhadap jar Minecraft 26.2 (lihat README).
  */
@@ -41,30 +41,49 @@ public final class Glass {
     }
 
     /**
-     * Persegi membulat dua nada (warna atas di separuh atas, warna bawah di separuh bawah).
-     * Hanya baris sudut yang digambar satu per satu, bagian tengah cukup satu atau dua fill.
+     * Persegi membulat dengan gradasi halus dari warna atas ke warna bawah (paling banyak 16 pita di bagian
+     * tengah, baris sudut digambar satu per satu). Jika kedua warna sama, hanya beberapa fill.
      */
     public static void roundRect(GuiGraphicsExtractor g, int x, int y, int w, int h, int r, int top, int bottom) {
         if (w <= 0 || h <= 0) {
             return;
         }
         r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
-        int half = h / 2;
+        boolean flat = top == bottom;
         for (int i = 0; i < r; i++) {
             int ins = inset(i, h, r);
-            g.fill(x + ins, y + i, x + w - ins, y + i + 1, i < half ? top : bottom);
+            g.fill(x + ins, y + i, x + w - ins, y + i + 1, flat ? top : mix(top, bottom, (i + 0.5f) / h));
             int j = h - 1 - i;
-            g.fill(x + ins, y + j, x + w - ins, y + j + 1, j < half ? top : bottom);
+            g.fill(x + ins, y + j, x + w - ins, y + j + 1, flat ? top : mix(top, bottom, (j + 0.5f) / h));
         }
         int midTop = y + r;
         int midBot = y + h - r;
-        if (midBot > midTop) {
-            int split = Math.max(midTop, Math.min(midBot, y + half));
-            if (split > midTop) {
-                g.fill(x, midTop, x + w, split, top);
+        if (midBot <= midTop) {
+            return;
+        }
+        if (flat) {
+            g.fill(x, midTop, x + w, midBot, top);
+            return;
+        }
+        int midH = midBot - midTop;
+        int bands = Math.max(1, Math.min(16, midH / 3));
+        for (int k = 0; k < bands; k++) {
+            int ya = midTop + midH * k / bands;
+            int yb = midTop + midH * (k + 1) / bands;
+            if (yb > ya) {
+                g.fill(x, ya, x + w, yb, mix(top, bottom, ((ya + yb) / 2f - y) / h));
             }
-            if (midBot > split) {
-                g.fill(x, split, x + w, midBot, bottom);
+        }
+    }
+
+    /** Bercak warna lembut: lingkaran berlapis (tepi pudar) dengan total alpha di tengah = alpha. */
+    public static void glow(GuiGraphicsExtractor g, int cx, int cy, int r, int rgb, float alpha) {
+        int rings = 6;
+        int c = argb(rgb, alpha / rings);
+        for (int k = 0; k < rings; k++) {
+            int rr = Math.round(r * (rings - k) / (float) rings);
+            if (rr > 0) {
+                disc(g, cx, cy, rr, c);
             }
         }
     }
