@@ -266,6 +266,7 @@ public final class ControlCenterScreen extends Screen {
             case SETTINGS -> 22;
             case CHARTS -> chipsHeight() + 4;
             case NOW -> 22;
+            case SEARCH -> wideSide ? 0 : 22;
             default -> 0;
         };
     }
@@ -357,8 +358,9 @@ public final class ControlCenterScreen extends Screen {
         sourceInput = null;
 
         int[] s = searchRect;
-        if (wideSide) {
-            songSearch = new EditBox(f, s[0] + 18, s[1] + 3, s[2] - 22, 12, Component.literal("Search"));
+        int[] box = wideSide ? s : (page == Page.SEARCH ? new int[] {x0, subTop(), x1 - x0, 18} : null);
+        if (box != null) {
+            songSearch = new EditBox(f, box[0] + 18, box[1] + 3, box[2] - 22, 12, Component.literal("Search"));
             songSearch.setBordered(false);
             songSearch.setTextColor(0xFFFFFFFF);
             songSearch.setMaxLength(100);
@@ -754,13 +756,20 @@ public final class ControlCenterScreen extends Screen {
                         : (on.searchState() == OnlineManager.SearchState.SEARCHING ? "Searching..."
                         : "Results for \"" + searchText.strip() + "\"");
             default:
-                return tab == Tab.SOURCES ? "Where your songs come from" : "Make XFiveLive yours";
+                return switch (tab) {
+                    case SOURCES -> "Where your songs come from";
+                    case LOOK -> "Colors, style and animations";
+                    case HUD -> "Dynamic Island, music and lyrics on screen";
+                    case CONTROLS -> "Dynamic bar and playback";
+                    case SPECS -> "About this device";
+                    default -> "Make XFiveLive yours";
+                };
         }
     }
 
     private void drawHeader(GuiGraphicsExtractor g, Font font, int accent, int mx, int my) {
         int titleY = py + 10;
-        bigText(g, font, page == Page.SETTINGS ? tab.title : page.title, x0, titleY, 0xFFFFFF, 1.5f);
+        bigText(g, font, page.title, x0, titleY, 0xFFFFFF, 1.5f);
         int rightLimit = isListPage() && showFilter() ? filterRect()[0] - 8 : closeRect()[0] - 8;
         GlassPanelRenderer.text(g, font, GlassPanelRenderer.fit(font, headerSub(), Math.max(40, rightLimit - x0)),
                 x0, titleY + 19, 0xB4BAC8);
@@ -809,6 +818,9 @@ public final class ControlCenterScreen extends Screen {
                 OnlineManager.Chart c = OnlineManager.CHARTS.get(i);
                 pill(g, font, cr[i], shortChart(c), c.id().equals(chartId), in(mx, my, cr[i]), accent);
             }
+        } else if (page == Page.SEARCH && !wideSide) {
+            Glass.roundRect(g, x0, subTop(), x1 - x0, 18, 9, a(0xFFFFFF, 0.09f));
+            icon(g, IC_SEARCH, x0 + 6, subTop() + 5, 0xFF8A909C);
         } else if (page == Page.NOW) {
             int[] pill = sourcePill();
             Glass.roundRect(g, pill[0], pill[1], pill[2], pill[3], 9, a(0xFFFFFF, 0.09f));
@@ -1458,9 +1470,13 @@ public final class ControlCenterScreen extends Screen {
         int[][] r = playerRects();
 
         PlaylistManager.Track t = music.currentTrack();
+        Song liveSong = currentOnlineSong();
         String title;
         String artist;
-        if (t != null) {
+        if (liveSong != null) {
+            title = liveSong.title();
+            artist = liveSong.artist();
+        } else if (t != null) {
             title = t.title();
             artist = t.artist();
         } else if (on.nowEntry() != null) {
@@ -2308,7 +2324,7 @@ public final class ControlCenterScreen extends Screen {
         // sidebar
         if (!wideSide && in(mx, my, searchRect)) {
             pressedKey = "search";
-            goTo(Page.SEARCH);
+            goTo(Page.SEARCH, true);
             return true;
         }
         if (wideSide && in(mx, my, searchRect[0], searchRect[1], 18, searchRect[3])) {

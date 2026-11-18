@@ -11,21 +11,21 @@ Tes ada di `tests/com/xfive/live/tests/XFiveTests.java` dan hanya memakai kode t
 - **Playlist**: pindai folder sekali (bukan per frame), baca "Artis - Judul" dari nama file, next/previous dengan wrap-around.
 - **Config**: simpan dan muat `config/xfive-live.properties`, nilai di luar batas dikunci, nilai rusak kembali ke default.
 
-## Download dan Play lagu online
+## Lagu online tanpa download
 
-- Halaman **Download** menampilkan tangga hits Indonesia dan barat (Apple Music Most Played, `HitCharts.java`); Play mencari lagunya di Audius dan hanya memutar hasil yang judul+artisnya cocok.
-- Halaman **Download** di Control Center: cari lagu (sumber Audius) dalam satu daftar; **Play** memutar dari folder cache sementara (bukan streaming sungguhan), **Get** menyimpan ke Library hanya jika pengunggah mengizinkan unduhan. Tempel link file lagu langsung juga bisa.
-- Kode murni (tanpa Minecraft) ada di `src/main/java/com/xfive/live/download/` dan dites dengan server HTTP palsu (sukses, redirect, HTML, file palsu, 404, 503 lalu berhasil, putus di tengah, batas ukuran, batal, folder tidak bisa ditulis, cache).
-- YouTube/Spotify sengaja tidak didukung (dilindungi). Tampilannya baru terkompilasi di CI; belum dicoba di HP.
-- Halaman **Specs** membaca spesifikasi perangkat sendiri (`config/DeviceInfo.java`, dites dengan data contoh); kalau gagal memakai preset.
+- Fitur download dihapus. Lagu online diputar langsung dari cache sementara (`OnlineManager.java`), dengan antrean otomatis (`PlayQueue.java`).
+- Sumber: Audius (lagu lengkap) dan Apple iTunes Search (cuplikan 30 detik, `ItunesSearch.java`). Tangga lagu 12 negara dari Apple Music Most Played (`HitCharts.java`).
+- Lagu online favorit disimpan sebagai teks (`FavoriteSongs.java`), bukan file. Bug favorit hilang (pemisah daftar salah di `XFiveConfig`) diperbaiki dan dites.
+- Kode murni (tanpa Minecraft) ada di `src/main/java/com/xfive/live/download/` dan dites dengan server HTTP palsu.
+- Spotify dan YouTube Music sengaja tidak diputar di dalam mod (dilindungi hak cipta).
+- Halaman **Specs** membaca spesifikasi perangkat sendiri (`config/DeviceInfo.java`); kalau gagal memakai preset.
 
 ## UI Control Center 1.1.0
 
-- Dua skin UI kini dapat dipilih pada Appearance: **Liquid Glass Lite** dan **Dark Music**. Pilihan disimpan sebagai `appearance.style` dan tidak menghapus pilihan warna aksen.
-- Liquid Glass Lite memakai panel kaca ringan; Dark Music memakai panel charcoal matte dengan aksen tema.
-- **Pilihan font khusus belum diimplementasikan.** UI masih memakai font Minecraft aktif.
-- **Spring Pop-in belum diimplementasikan.** Tombol Animations yang sudah ada belum boleh dianggap sebagai bukti transisi buka/tutup.
-- Animasi penutupan yang mengecil menuju HUD juga belum diimplementasikan.
+- Tampilan baru bergaya aplikasi musik kaca: sidebar (cari, Home, Charts, Now Playing, Liked Songs, Settings), isi di tengah dengan tombol List/Covers, dan bar pemutar membulat di bawah.
+- Warna: 8 tema bawaan ditambah **warna sendiri** (Hue/Saturation/Brightness, `Themes.java`). Satu warna aksen dipakai di semua halaman dan HUD.
+- Dua skin UI di Appearance: **Liquid Glass Lite** dan **Dark Music**.
+- Sampul lagu berupa kotak berwarna dengan huruf awal (tanpa gambar album).
 - Build sukses hanya membuktikan kompilasi/paket; pengujian visual dan input tetap perlu dilakukan di Minecraft/Fabric.
 
 ## Ditulis, tapi belum dikompilasi atau diuji di game

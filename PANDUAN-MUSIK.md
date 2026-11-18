@@ -49,16 +49,30 @@ Mod tidak bisa membuka pemilih file dari HP. Karena itu lagu harus disalin manua
 
 ## Control Center (semua dalam satu jendela)
 
-Tekan **F6** untuk langsung ke Audio (daftar lagu + pemutar), atau **Right Shift** untuk Home. Mouse otomatis aktif saat jendela terbuka. Menu di kiri:
+Tekan **F6** untuk langsung ke **Now Playing**, atau **Right Shift** untuk **Home**. Mouse otomatis aktif saat jendela terbuka. Tampilannya kaca gelap: menu di kiri, isi di tengah, bar pemutar di bawah.
 
-- **Home**: pintasan ke semua halaman.
-- **Audio**: daftar lagu. Geser dengan jari untuk menggulir, ketuk lagu untuk memutar, ketik di kotak cari. Isi path folder atau file di kotak kiri lalu tekan **+** untuk menambah lagu (contoh `/storage/emulated/0/Music`). Bar di bawah: prev, play/pause, next, repeat, shuffle, volume, dan progres lagu (ketuk atau geser).
-- **HUD**: nyalakan atau matikan tiap HUD, atur HUD opacity, lebar dan tinggi Dynamic Island. **Drag HUD** membuka mode geser: tahan dan geser kotak HUD dengan jari.
-- **Custom Controls**: bentuk Island (Card atau Pill), warna, Auto hide, lama pop-up, tampil saat jeda, repeat, shuffle.
-- **Appearance**: 8 tema warna (Purple, Cyan, Rose, Emerald, Amber, Ocean, Crimson, Mono). Ketuk kotak warna untuk mengganti. Tema dipakai di Control Center dan semua HUD. Juga ada Glass opacity dan Animations.
-- **Settings**: aktifkan mod, putar otomatis, unduh lirik otomatis, baca spesifikasi perangkat.
+Menu kiri:
+- **Kotak cari (paling atas)**: ketik judul lagu atau artis (minimal 2 huruf), berhenti mengetik sebentar, lalu hasilnya muncul di halaman **Search**: lagu di HP Anda dan lagu online. Ikon kaca di kiri kotak = cari sekarang.
+- **Home**: sapaan, tombol **Play hits** (memutar tangga Top Indonesia dari lagu pertama), dan kartu tangga 12 negara.
+- **Charts**: pilih negara di baris tombol, daftar 50 lagu terpopuler muncul. Ketuk lagu untuk memutar; setelah selesai lanjut otomatis ke lagu berikutnya.
+- **Now Playing**: lagu di Library (folder musik Anda) dan lagu online yang sedang diputar. Kolom di atas daftar: isi path folder atau file lalu **Add**, **Refresh** untuk memindai ulang.
+- **Liked Songs**: semua lagu yang Anda beri hati (lagu Library dan lagu online).
+- **Settings** (tombol bawah): tab **General**, **HUD**, **Controls**, **Appearance**, **Specs**, **Sources**.
+- Nama Anda di bawah: ketuk untuk membuka tab Sources.
 
-Tekan **Close** atau Esc untuk keluar. Pengaturan tersimpan otomatis.
+Di kanan atas tiap daftar: kotak **Filter this list...** dan tombol **List / Covers** (daftar atau kotak sampul warna). Geser dengan jari untuk menggulir.
+
+**Bar pemutar (bawah)**: sampul, judul, artis, ulang, sebelumnya, play/pause, berikutnya, acak, hati (suka lagu yang sedang diputar), volume, dan garis progres (ketuk atau geser).
+
+**Settings**
+- **General**: aktifkan mod, putar otomatis, unduh lirik otomatis (dari lrclib), baca spesifikasi perangkat, pindai ulang folder.
+- **HUD**: nyalakan/matikan tiap HUD, animasi lirik, posisi lirik, sinkron lirik, opacity, lebar/tinggi Dynamic Island. **Move HUDs (drag)** membuka mode geser: tahan dan geser kotak HUD dengan jari.
+- **Controls**: bentuk Island (Card/Pill), warna, Auto hide, lama pop-up, tampil saat jeda, repeat, shuffle.
+- **Appearance**: 8 warna tema ditambah **warna sendiri**: ketuk kotak warna terakhir lalu atur **Hue** (pelangi), **Saturation**, **Brightness**. Warna dipakai di seluruh Control Center dan semua HUD. Juga ada gaya UI (Liquid Glass Lite / Dark Music), font, Panel opacity dan Spring animations.
+- **Specs**: spesifikasi perangkat dengan animasi (ketuk untuk memutar ulang).
+- **Sources**: ringkasan sumber lagu.
+
+Tekan tombol **X** di kanan atas atau Esc untuk keluar. Pengaturan tersimpan otomatis.
 
 ## Dynamic Island
 
@@ -94,7 +108,7 @@ Catatan: cara paling mudah dan paling pasti adalah menyalin lagu langsung ke fol
 
 ## Batasan saat ini
 
-- Tidak ada koneksi ke Spotify atau YouTube (dilindungi, sengaja tidak didukung). Musik berasal dari file di HP atau dari halaman Download (link langsung / pencarian Internet Archive).
+- Spotify dan YouTube Music tidak bisa diputar di dalam mod (lagunya dilindungi hak cipta). Musik berasal dari file di HP atau dari lagu online (Audius dan cuplikan Apple, lihat bagian "Lagu online").
 - HUD di dalam game tidak bisa diklik (kursor terkunci). Tekan F6 untuk membuka Control Center dan mengendalikan musik.
 - Pemutaran di Android belum diuji langsung di perangkat. Kalau tidak berbunyi, kirim status yang muncul di menu.
 
@@ -102,42 +116,21 @@ Catatan: cara paling mudah dan paling pasti adalah menyalin lagu langsung ke fol
 
 Di menu samping ada halaman **Specs**: spesifikasi HP (Infinix GT30 Pro, Dimensity 8350 Ultimate, RAM 8 GB / ROM 256 GB, GPU Mali, XOS 16) dengan animasi: HP bergaris tergambar, chip membal, judul berganti huruf acak, lalu baris spesifikasi diketik satu per satu. Ketuk halamannya untuk memutar ulang animasi.
 
-## Halaman Download (cari, putar, dan simpan lagu online)
+## Lagu online (tanpa download)
 
-Menu samping → **Download**. Perlu internet. Ada kolom isian dan tiga tombol: **Paste**, **Play**, **Go**.
+Fitur download sudah dihapus. Semua lagu online **diputar langsung**, tidak disimpan ke Library. Perlu internet.
 
-**Lagu hits saat ini**
-- Begitu halaman Download dibuka, muncul tangga **Indo Hits** dan **Western Hits** (25 lagu terpopuler hari ini, diambil dari tangga Apple Music Indonesia dan Amerika). Pilih tab di atas daftar.
-- **Play** di baris lagu: mod mencari lagu itu di Audius dan langsung memutarnya kalau ada yang cocok (judul dan artis harus sama).
-- **Find** menampilkan hasil pencarian untuk lagu itu supaya Anda memilih sendiri. Tombol **< Back to hits** kembali ke tangga.
-- Tangga hanya berisi **daftar judul**; audionya dicari di Audius. Lagu hits dari label besar sering **tidak ada** di Audius, jadi pesan "Not available to play" itu normal, bukan error.
+- **Charts / Home**: tangga lagu terpopuler 12 negara (Indonesia, USA, UK, Korea, Jepang, India, Brasil, Malaysia, Filipina, Thailand, Jerman, Prancis), dari tangga Apple Music "Most Played". Hanya daftar judul dan artis; audionya dicari saat Anda memutar.
+- **Search**: mencari di Audius (lagu **lengkap**, gratis) dan di katalog Apple (**cuplikan 30 detik**, dipakai kalau lagunya tidak ada di Audius).
+- Untuk lagu tangga: mod mencari versi lengkap di Audius dulu. Kalau tidak ada, memutar cuplikan 30 detik dari Apple (ditandai di pemutar). Kalau dua-duanya tidak ada, lagu dilewati.
+- **Antrean otomatis**: lagu dari daftar (tangga, hasil cari, Liked Songs) lanjut ke lagu berikutnya sampai habis. Next/Previous, Shuffle dan Repeat bekerja pada antrean itu.
+- Lagu dimuat dulu ke folder sementara `xfive-cache` (biasanya beberapa detik), lalu diputar. Folder itu dikosongkan setiap game dibuka. Ini bukan streaming sungguhan: lagu harus selesai dimuat dulu.
+- **Hati**: ketuk hati di baris lagu atau di bar pemutar untuk menyimpan ke **Liked Songs**. Lagu online favorit tersimpan sebagai judul + alamat, jadi tidak ada file yang disimpan dan tetap ada setelah keluar game.
+- Lirik diunduh otomatis saat lagunya diputar (kalau "Auto-download lyrics" aktif).
 
-**Cari lagu (cara termudah)**
-1. Ketik judul lagu atau nama artis, ketuk **Go**.
-2. Muncul daftar lagu, tiap baris punya judul, artis, dan lama lagu.
-3. Ketuk **Play** untuk langsung mendengarkan.
-4. Tombol **Get** (simpan ke Library) hanya muncul pada lagu yang **pengunggahnya mengizinkan unduhan**. Lagu tanpa tombol Get hanya bisa diputar.
+**Jujur soal katalog**: katalog gratis tidak sama dengan Spotify. Banyak hits label besar tidak ada versi lengkapnya; untuk itu yang bisa diputar hanya cuplikan 30 detik.
 
-Sumber pencarian: Audius (platform musik terbuka). Tidak semua lagu ada di sana, jadi sebagian pencarian bisa kosong atau hasilnya bukan lagu yang dicari. Lagu terkenal dari Spotify/YouTube sering tidak ada.
-
-**Tempel link langsung**
-1. Salin link file lagu (berakhiran .mp3, .m4a, .ogg atau .wav, atau link yang langsung memberi file lagu).
-2. Ketuk **Paste**, lalu **Go** (simpan ke Library) atau **Play** (dengarkan saja).
-
-**Play online**
-- Lagu dimuat dulu ke folder sementara `xfive-cache` (biasanya beberapa detik), lalu otomatis diputar. Lagu itu **tidak masuk Library**; folder sementara dikosongkan setiap game dibuka. Ini bukan streaming sungguhan: lagu harus selesai dimuat dulu.
-- Next/Previous setelah itu kembali ke lagu di Library. Untuk menambah ke Favorites, simpan dulu (jika ada tombol Get).
-
-**Setelah Get selesai**
-- Lagu otomatis masuk folder musik dan muncul di **Library** tanpa restart. Unduhan jalan di latar belakang walau menu ditutup.
-- Lirik diunduh otomatis saat lagunya diputar (kalau "Auto-download lyrics" aktif di Settings).
-
-**Pengaman**
-- File ditulis dulu sebagai `.part`, baru diganti nama setelah lengkap. Gagal/dibatalkan = file sementara dihapus.
-- Lagu yang sudah ada tidak pernah ditimpa (nama jadi `lagu (2).mp3`).
-- Halaman web yang menyamar jadi file lagu ditolak. Batas 200 MB per file. Koneksi putus dicoba ulang otomatis 2x.
-- Link YouTube, Spotify, TikTok, SoundCloud dan sejenisnya tidak bisa (dilindungi); mod memberi tahu kalau dicoba.
-- Unduh hanya lagu yang boleh Anda simpan (gratis/berlisensi/milik sendiri).
+**Favorit hilang setelah keluar game (sudah diperbaiki)**: dulu daftar favorit disimpan dengan pemisah yang salah, sehingga saat dibuka lagi beberapa favorit tergabung jadi satu dan hilang dari daftar. Sekarang disimpan dengan benar, dan file lama tetap terbaca.
 
 ## Spesifikasi perangkat otomatis
 
