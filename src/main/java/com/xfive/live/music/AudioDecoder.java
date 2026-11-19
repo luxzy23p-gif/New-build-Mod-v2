@@ -194,12 +194,57 @@ public final class AudioDecoder {
         return new Pcm(all, channels, rate);
     }
 
-    /** M4A (AAC-LC / HE-AAC di kontainer MP4). ALAC (Apple Lossless) tidak didukung. */
+    /**
+     * M4A (AAC-LC / HE-AAC di kontainer MP4). ALAC (Apple Lossless) tidak didukung.
+     * Jalur utama memakai pembaca MP4 sendiri (Mp4Aac) yang melewati kotak metadata, sehingga tag aneh
+     * dari iTunes tidak menyebabkan "error while decoding box". Jika gagal, dicoba pembaca bawaan JAAD.
+     */
     private static Pcm decodeM4a(Path file) throws IOException {
-        short[] out = new short[1 << 20];
-        int count = 0;
-        int channels = 0;
-        int rate = 0;
+        IOException first;
+        try {
+            return decodeM4aOwn(Files.readAllBytes(file));
+        } catch (IOException e) {
+            first = e;
+        } catch (RuntimeException | OutOfMemoryError e) {
+            first = new IOException("M4A rusak atau tidak didukung: " + e.getMessage(), e);
+        }
+        if (first.getMessage() != null && first.getMessage().startsWith("Audio ini")) {
+            throw first; // bukan AAC: pembaca JAAD juga tidak akan bisa
+        }
+        try {
+            return decodeM4aJaad(file);
+        } catch (IOException | RuntimeException | OutOfMemoryError e) {
+            throw first; // pesan pembaca sendiri lebih jelas daripada "error while decoding box"
+        }
+    }
+
+    private static Pcm decodeM4aOwn(byte[] data) throws IOException {
+        Mp4Aac.Result r = Mp4Aac.parse(data);
+        net.sourceforge.jaad.aac.Decoder decoder;
+        try {
+            decoder = new net.sourceforge.jaad.aac.Decoder(r.config());
+        } catch (RuntimeException e) {
+            throw new IOException("Audio ini tidak bisa dibuka sebagai AAC. Pakai AAC, MP3, OGG, atau WAV.", e);
+        }
+        net.sourceforge.jaad.aac.SampleBuffer buf = new net.sourceforge.jaad.aac.SampleBuffer();
+        PcmSink sink = new PcmSink();
+        int bad = 0;
+        for (int i = 0; i < r.count(); i++) {
+            try {
+                decoder.decodeFrame(java.util.Arrays.copyOfRange(data, r.offsets()[i], r.offsets()[i] + r.sizes()[i]), buf);
+            } catch (Exception e) { // AACException atau RuntimeException, apa pun jenisnya di versi JAAD ini
+                if (++bad > 50 && bad > r.count() / 4) {
+                    throw new IOException("M4A rusak: terlalu banyak bingkai yang gagal dibaca", e);
+                }
+                continue; // satu bingkai rusak dilewati saja
+            }
+            sink.add(buf);
+        }
+        return sink.finish();
+    }
+
+    private static Pcm decodeM4aJaad(Path file) throws IOException {
+        PcmSink sink = new PcmSink();
         try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file.toFile(), "r")) {
             net.sourceforge.jaad.mp4.MP4Container container = new net.sourceforge.jaad.mp4.MP4Container(raf);
             net.sourceforge.jaad.mp4.api.Movie movie = container.getMovie();
@@ -216,46 +261,53 @@ public final class AudioDecoder {
             if (audio == null) {
                 throw new IOException("M4A tidak punya jalur audio");
             }
-            net.sourceforge.jaad.aac.Decoder decoder;
-            try {
-                decoder = new net.sourceforge.jaad.aac.Decoder(audio.getDecoderSpecificInfo());
-            } catch (RuntimeException e) {
-                throw new IOException("M4A ini bukan AAC (mungkin Apple Lossless). Ubah ke AAC, MP3, OGG, atau WAV.", e);
-            }
+            net.sourceforge.jaad.aac.Decoder decoder = new net.sourceforge.jaad.aac.Decoder(audio.getDecoderSpecificInfo());
             net.sourceforge.jaad.aac.SampleBuffer buf = new net.sourceforge.jaad.aac.SampleBuffer();
             net.sourceforge.jaad.mp4.api.Frame frame;
             while ((frame = audio.readNextFrame()) != null) {
                 decoder.decodeFrame(frame.getData(), buf);
-                byte[] d = buf.getData();
-                if (d == null || d.length < 2) {
-                    continue;
-                }
-                if (channels == 0) {
-                    channels = Math.max(1, buf.getChannels());
-                    rate = buf.getSampleRate();
-                }
-                int n = d.length / 2;
-                if (count + n > out.length) {
-                    out = java.util.Arrays.copyOf(out, Math.max(out.length * 2, count + n));
-                }
-                boolean big = buf.isBigEndian();
-                for (int i = 0; i < n; i++) {
-                    int hi = d[i * 2];
-                    int lo = d[i * 2 + 1] & 0xFF;
-                    int a = d[i * 2] & 0xFF;
-                    int b = d[i * 2 + 1];
-                    out[count++] = big ? (short) ((hi << 8) | lo) : (short) ((b << 8) | a);
-                }
+                sink.add(buf);
             }
-        } catch (IOException e) {
-            throw e;
         } catch (RuntimeException | OutOfMemoryError e) {
             throw new IOException("M4A rusak atau tidak didukung: " + e.getMessage(), e);
         }
-        if (count == 0 || channels == 0 || rate == 0) {
-            throw new IOException("M4A tidak berisi audio yang bisa dibaca");
+        return sink.finish();
+    }
+
+    /** Menampung PCM 16-bit dari SampleBuffer JAAD. */
+    private static final class PcmSink {
+        short[] out = new short[1 << 20];
+        int count;
+        int channels;
+        int rate;
+
+        void add(net.sourceforge.jaad.aac.SampleBuffer buf) {
+            byte[] d = buf.getData();
+            if (d == null || d.length < 2) {
+                return;
+            }
+            if (channels == 0) {
+                channels = Math.max(1, buf.getChannels());
+                rate = buf.getSampleRate();
+            }
+            int n = d.length / 2;
+            if (count + n > out.length) {
+                out = java.util.Arrays.copyOf(out, Math.max(out.length * 2, count + n));
+            }
+            boolean big = buf.isBigEndian();
+            for (int i = 0; i < n; i++) {
+                int a = d[i * 2] & 0xFF;
+                int b = d[i * 2 + 1] & 0xFF;
+                out[count++] = big ? (short) ((a << 8) | b) : (short) ((b << 8) | a);
+            }
         }
-        return new Pcm(java.util.Arrays.copyOf(out, count), channels, rate);
+
+        Pcm finish() throws IOException {
+            if (count == 0 || channels == 0 || rate == 0) {
+                throw new IOException("M4A tidak berisi audio yang bisa dibaca");
+            }
+            return new Pcm(java.util.Arrays.copyOf(out, count), channels, rate);
+        }
     }
 
     private static String ascii(byte[] b, int off) {

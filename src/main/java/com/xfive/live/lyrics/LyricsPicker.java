@@ -59,10 +59,33 @@ public final class LyricsPicker {
             return "";
         }
         String t = s.toLowerCase(Locale.ROOT);
+        t = t.replaceAll("^\\s*\\d{1,3}\\s*(?:[.)]|\\s-\\s)\\s*", ""); // "01. Judul", "01 - Judul"
         t = t.replaceAll("\\([^)]*\\)|\\[[^]]*]", " ");
         t = t.replaceAll("\\b(feat|ft|featuring)\\b.*$", " ");
         t = t.replaceAll("[^\\p{L}\\p{N}]+", " ").strip();
         return t.replaceAll("\\s+", " ");
+    }
+
+    private static final java.util.Set<String> NOISE = java.util.Set.of("remaster", "remastered", "version", "edit",
+            "single", "mono", "stereo", "deluxe", "album", "radio", "original", "explicit", "clean", "official", "audio");
+
+    /** Judul tanpa kata keterangan versi ("Remastered 2015", "Single Version") yang tidak mengubah lagunya. */
+    static String core(String s) {
+        String n = normalize(s);
+        if (n.isEmpty()) {
+            return n;
+        }
+        StringBuilder out = new StringBuilder();
+        for (String w : n.split(" ")) {
+            if (NOISE.contains(w) || w.matches("(19|20)\\d\\d")) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(' ');
+            }
+            out.append(w);
+        }
+        return out.length() == 0 ? n : out.toString();
     }
 
     public static boolean sameTitle(String want, String got) {
@@ -71,7 +94,7 @@ public final class LyricsPicker {
         if (a.isEmpty() || b.isEmpty()) {
             return false;
         }
-        return a.equals(b);
+        return a.equals(b) || core(want).equals(core(got));
     }
 
     /** Artis cocok jika ada kata (3 huruf atau lebih) yang sama. Jika artis yang dicari kosong, dianggap cocok. */
@@ -107,14 +130,11 @@ public final class LyricsPicker {
             if (c == null || c.instrumental() || c.synced() == null || !c.synced().contains("[")) {
                 continue;
             }
-            if (!sameTitle(title, c.title()) || !sameArtist(artist, c.artist())) {
-                continue;
-            }
             if (c.durationSec() <= 0) {
                 continue;
             }
             double diff = Math.abs(c.durationSec() - want);
-            if (diff > MAX_DIFF_SEC) {
+            if (diff > MAX_DIFF_SEC || !titleArtistOk(c, title, artist, diff)) {
                 continue;
             }
             if (!plausible(c.synced(), durationMs)) {
@@ -126,6 +146,74 @@ public final class LyricsPicker {
             }
         }
         return best;
+    }
+
+    /**
+     * Judul dan artis cocok. Keringanan yang aman: (1) nama file tertukar "Judul - Artis", (2) artis beda ejaan atau
+     * aksara tetapi judulnya sama persis (minimal 4 huruf) dan durasinya selisih paling banyak 2 detik.
+     */
+    private static boolean titleArtistOk(Candidate c, String title, String artist, double diff) {
+        boolean t = sameTitle(title, c.title());
+        if (t && sameArtist(artist, c.artist())) {
+            return true;
+        }
+        if (!t && sameTitle(artist, c.title()) && sameArtist(title, c.artist())) {
+            return true;
+        }
+        return t && diff <= STRICT_DIFF_SEC && normalize(title).length() >= 4;
+    }
+
+    /** Selisih durasi (detik) yang cukup ketat untuk menerima artis yang ejaannya berbeda. */
+    public static final double STRICT_DIFF_SEC = 2.0;
+
+    /**
+     * Alasan singkat (bahasa Inggris, tampil di Now Playing) kenapa tidak ada lirik yang dipilih dari daftar ini.
+     * Dipanggil hanya jika pick() mengembalikan null.
+     */
+    public static String reason(List<Candidate> list, String title, String artist, long durationMs) {
+        if (list == null || list.isEmpty()) {
+            return "No lyrics for this song on lrclib yet.";
+        }
+        double want = durationMs / 1000.0;
+        boolean titleSeen = false;
+        boolean onlyPlain = false;
+        double nearest = Double.MAX_VALUE;
+        double nearestSigned = 0;
+        boolean weak = false;
+        for (Candidate c : list) {
+            if (c == null || !(sameTitle(title, c.title()) || sameTitle(artist, c.title()))) {
+                continue;
+            }
+            titleSeen = true;
+            if (c.instrumental()) {
+                return "This song is marked instrumental, so there are no lyrics.";
+            }
+            if (c.synced() == null || !c.synced().contains("[")) {
+                onlyPlain = true;
+                continue;
+            }
+            if (!plausible(c.synced(), durationMs)) {
+                weak = true;
+            }
+            double d = c.durationSec() - want;
+            if (Math.abs(d) < nearest) {
+                nearest = Math.abs(d);
+                nearestSigned = d;
+            }
+        }
+        if (!titleSeen) {
+            return "Lyrics were found only for other songs. Check the file name (Artist - Title).";
+        }
+        if (nearest == Double.MAX_VALUE) {
+            return onlyPlain ? "Only unsynced lyrics exist, so they are hidden (they would not follow the song)."
+                    : "No synced lyrics for this song.";
+        }
+        if (nearest > MAX_DIFF_SEC) {
+            return "Lyrics exist for a version " + Math.round(nearest) + " s "
+                    + (nearestSigned > 0 ? "longer" : "shorter") + " than yours, so they would be out of sync.";
+        }
+        return weak ? "The lyrics found do not fit this song's length, so they are hidden."
+                : "No synced lyrics matched this song and artist.";
     }
 
     /**

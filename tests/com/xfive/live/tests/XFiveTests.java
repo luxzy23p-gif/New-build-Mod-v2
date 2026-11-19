@@ -43,12 +43,41 @@ public final class XFiveTests {
         testSpecSheet();
         testDeviceInfo();
         new DownloadTests(XFiveTests::check).run(work.resolve("download"));
+        new Mp4Tests(XFiveTests::check).run();
+        testTextFit();
         Files.createDirectories(work.resolve("spotify"));
         new SpotifyTests(XFiveTests::check).run(work.resolve("spotify"));
         System.out.println("passed=" + passed + " failed=" + failed);
         if (failed > 0) {
             System.exit(1);
         }
+    }
+
+    static void testTextFit() {
+        java.util.function.ToIntFunction<String> w = t -> t.length() * 5 + (int) t.chars().filter(c -> c == 'W').count() * 3;
+        java.util.Random rnd = new java.util.Random(7);
+        boolean same = true;
+        for (int n = 0; n < 2000; n++) {
+            StringBuilder sb = new StringBuilder();
+            int len = rnd.nextInt(60);
+            for (int i = 0; i < len; i++) {
+                sb.append(rnd.nextInt(5) == 0 ? 'W' : (char) ('a' + rnd.nextInt(26)));
+            }
+            String s = sb.toString();
+            int max = rnd.nextInt(300);
+            String t = s;
+            if (w.applyAsInt(s) > max) {
+                while (t.length() > 1 && w.applyAsInt(t + "...") > max) {
+                    t = t.substring(0, t.length() - 1);
+                }
+                t = t + "...";
+            }
+            same &= t.equals(com.xfive.live.render.TextFit.fit(w, s, max));
+        }
+        check("TextFit sama dengan cara lama (2000 acak)", same);
+        check("TextFit teks pendek tidak diubah", com.xfive.live.render.TextFit.fit(w, "abc", 100).equals("abc"));
+        check("TextFit minimal 1 huruf", com.xfive.live.render.TextFit.fit(w, "abcdefgh", 3).equals("a..."));
+        check("TextFit string kosong", com.xfive.live.render.TextFit.fit(w, "", 0).isEmpty());
     }
 
     static void testLrc() {
@@ -190,6 +219,28 @@ public final class XFiveTests {
         check("lyrics clearlyWrong melewati akhir", com.xfive.live.lyrics.LyricsPicker.clearlyWrong(com.xfive.live.lyrics.LrcParser.parse(lrcOf(60, 5)), 200_000L));
         check("lyrics clearlyWrong tidak untuk yang pas", !com.xfive.live.lyrics.LyricsPicker.clearlyWrong(com.xfive.live.lyrics.LrcParser.parse(full), 200_000L)
                 && !com.xfive.live.lyrics.LyricsPicker.clearlyWrong(java.util.List.of(), 200_000L));
+        var one = com.xfive.live.lyrics.LyricsPicker.parse("[" + cand("Hello", "Adele", 200, false, full) + "]");
+        check("lyrics nomor track '01. Hello' cocok", com.xfive.live.lyrics.LyricsPicker.pick(one, "01. Hello", "Adele", 200_000L) != null);
+        check("lyrics '01 - Hello' cocok", com.xfive.live.lyrics.LyricsPicker.pick(one, "01 - Hello", "Adele", 200_000L) != null);
+        check("lyrics judul '7 rings' tidak dipotong angkanya", com.xfive.live.lyrics.LyricsPicker.normalize("7 rings").equals("7 rings"));
+        var rem = com.xfive.live.lyrics.LyricsPicker.parse("[" + cand("Hello - Remastered 2015", "Adele", 200, false, full) + "]");
+        check("lyrics 'Remastered 2015' dianggap judul sama", com.xfive.live.lyrics.LyricsPicker.pick(rem, "Hello", "Adele", 200_000L) != null);
+        var other = com.xfive.live.lyrics.LyricsPicker.parse("[" + cand("Hello", "Beda Sekali", 200, false, full) + "]");
+        check("lyrics artis beda tapi judul sama & selisih 0 s: diterima", com.xfive.live.lyrics.LyricsPicker.pick(other, "Hello", "Adele", 200_000L) != null);
+        check("lyrics artis beda & selisih 3 s: ditolak", com.xfive.live.lyrics.LyricsPicker.pick(other, "Hello", "Adele", 203_000L) == null);
+        check("lyrics artis beda & judul terlalu pendek: ditolak", com.xfive.live.lyrics.LyricsPicker.pick(
+                com.xfive.live.lyrics.LyricsPicker.parse("[" + cand("Aku", "Beda", 200, false, full) + "]"), "Aku", "Adele", 200_000L) == null);
+        check("lyrics nama file tertukar (Judul - Artis) diterima", com.xfive.live.lyrics.LyricsPicker.pick(one, "Adele", "Hello", 200_000L) != null);
+        check("lyrics alasan: daftar kosong", com.xfive.live.lyrics.LyricsPicker.reason(java.util.List.of(), "Hello", "Adele", 200_000L).contains("lrclib"));
+        check("lyrics alasan: durasi beda", com.xfive.live.lyrics.LyricsPicker.reason(
+                com.xfive.live.lyrics.LyricsPicker.parse("[" + cand("Hello", "Adele", 215, false, full) + "]"), "Hello", "Adele", 200_000L)
+                .contains("15 s longer"));
+        check("lyrics alasan: hanya teks biasa", com.xfive.live.lyrics.LyricsPicker.reason(
+                com.xfive.live.lyrics.LyricsPicker.parse("[" + cand("Hello", "Adele", 200, false, null) + "]"), "Hello", "Adele", 200_000L)
+                .contains("unsynced"));
+        check("lyrics alasan: lagu lain", com.xfive.live.lyrics.LyricsPicker.reason(
+                com.xfive.live.lyrics.LyricsPicker.parse("[" + cand("Goodbye", "Adele", 200, false, full) + "]"), "Hello", "Adele", 200_000L)
+                .contains("other songs"));
         check("lyrics cleanTitle buang tag di ujung", com.xfive.live.lyrics.LrclibFetcher.cleanTitle("Sial (Official Audio)").equals("Sial")
                 && com.xfive.live.lyrics.LrclibFetcher.cleanTitle("(Only Tag)").equals("(Only Tag)"));
     }

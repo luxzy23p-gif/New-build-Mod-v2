@@ -349,7 +349,7 @@ public final class XFiveLiveClient implements ClientModInitializer {
                 lyricsNote = "";
             } else if (ONLINE.nowSong() != null && MUSIC.isOnlineTrack(track) && ONLINE.nowSong().isPreview()) {
                 LYRICS.clear();
-                lyricsNote = "Preview 30 s: lyrics cannot be synced to a short clip.";
+                lyricsNote = "Preview 30 s: lyrics cannot be synced to a short clip (full songs and your own files get lyrics).";
             } else {
                 Path lrc = findLrc(track);
                 if (lrc != null && LYRICS.loadFile(lrc)) {
@@ -430,12 +430,14 @@ public final class XFiveLiveClient implements ClientModInitializer {
                 lyricsNote = "Song length unknown, so lyrics cannot be matched.";
                 return;
             }
-            String text = com.xfive.live.lyrics.LrclibFetcher.fetch(track.artist(), track.title(), dur);
+            com.xfive.live.lyrics.LrclibFetcher.Result found =
+                    com.xfive.live.lyrics.LrclibFetcher.fetchDetailed(track.artist(), track.title(), dur);
             if (generation != lyricsGeneration) {
                 return;
             }
+            String text = found.text();
             if (text == null) {
-                lyricsNote = "No synced lyrics found for this exact version of the song.";
+                lyricsNote = found.reason().isEmpty() ? "No synced lyrics found for this song." : found.reason();
                 return;
             }
             try {

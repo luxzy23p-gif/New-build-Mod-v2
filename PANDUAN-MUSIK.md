@@ -149,6 +149,8 @@ Saat lagu diputar, lirik bersinkron muncul **melayang di layar** (kapsul kaca ge
 - Nyalakan/matikan: **Settings > HUD > Lyrics HUD**. Kapsul: **Lyric bubble**. Geser posisinya: **Move HUDs (drag)**.
 - Kalau liriknya masih dicari atau tidak ada, beberapa detik pertama lagu muncul keterangannya.
 - Lagu cuplikan 30 detik (Apple) **tidak** diberi lirik: klip pendek itu dipotong dari tengah lagu, jadi waktunya tidak bisa dicocokkan.
+- Keterangan di halaman Now Playing sekarang menyebut **alasannya** kalau lirik tidak muncul: belum ada di lrclib, hanya ada lirik tanpa waktu, versinya beda durasi (mis. "15 s longer"), atau nama file perlu dibenarkan.
+- Nama file seperti `01. Judul`, `Judul - Remastered 2015`, atau `Judul - Artis` (tertukar) sekarang tetap dikenali.
 - Tidak semua lagu punya lirik bersinkron di lrclib.net. Kalau tidak ada, kamu bisa menaruh file `.lrc` sendiri di `xfive-lirik`.
 
 ## Sambungkan Spotify (mengontrol aplikasi Spotify di HP)

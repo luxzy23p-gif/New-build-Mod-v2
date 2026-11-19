@@ -55,26 +55,40 @@ public final class GlassPanelRenderer {
     }
 
     private static final java.util.HashMap<String, Component> CACHE = new java.util.HashMap<>();
+    private static final java.util.HashMap<String, Integer> WIDTHS = new java.util.HashMap<>();
+    private static final java.util.HashMap<String, String> FITS = new java.util.HashMap<>();
     private static String cachedFont = "";
 
-    /** Teks dengan font pilihan pengguna (atau bawaan). Komponen di-cache supaya tidak membuat objek tiap frame. */
-    private static Component styled(String s) {
+    /** Kosongkan semua cache jika font pilihan pengguna berganti. */
+    private static String fontId() {
         String id = com.xfive.live.XFiveLiveClient.CONFIG.uiFont;
         if (!id.equals(cachedFont)) {
             CACHE.clear();
+            WIDTHS.clear();
+            FITS.clear();
             cachedFont = id;
         }
+        return id;
+    }
+
+    private static Component make(String s, String id) {
+        MutableComponent m = Component.literal(s);
+        if (!"default".equals(id)) {
+            m.setStyle(Style.EMPTY.withFont(new FontDescription.Resource(
+                    Identifier.fromNamespaceAndPath("xfive-live", id))));
+        }
+        return m;
+    }
+
+    /** Teks dengan font pilihan pengguna (atau bawaan). Komponen di-cache supaya tidak membuat objek tiap frame. */
+    private static Component styled(String s) {
+        String id = fontId();
         Component c = CACHE.get(s);
         if (c == null) {
             if (CACHE.size() > 600) {
                 CACHE.clear();
             }
-            MutableComponent m = Component.literal(s);
-            if (!"default".equals(id)) {
-                m.setStyle(Style.EMPTY.withFont(new FontDescription.Resource(
-                        Identifier.fromNamespaceAndPath("xfive-live", id))));
-            }
-            c = m;
+            c = make(s, id);
             CACHE.put(s, c);
         }
         return c;
@@ -93,21 +107,39 @@ public final class GlassPanelRenderer {
         g.text(font, styled(s), x, y, (a << 24) | (rgb & 0xFFFFFF), true);
     }
 
-    /** Lebar teks dalam piksel dengan font yang sama seperti text(). */
+    /** Lebar teks dalam piksel dengan font yang sama seperti text(). Hasilnya di-cache. */
     public static int width(Font font, String s) {
-        return font.width(styled(s));
+        fontId();
+        Integer w = WIDTHS.get(s);
+        if (w == null) {
+            if (WIDTHS.size() > 2000) {
+                WIDTHS.clear();
+            }
+            w = font.width(styled(s));
+            WIDTHS.put(s, w);
+        }
+        return w;
     }
 
-    /** Memotong teks dengan "..." agar muat dalam maxPx piksel. */
+    /**
+     * Memotong teks dengan "..." agar muat dalam maxPx piksel. Hasil di-cache, dan pengukuran kandidat tidak
+     * mengisi cache komponen (dulu tiap frame membuat puluhan komponen sementara).
+     */
     public static String fit(Font font, String s, int maxPx) {
         if (width(font, s) <= maxPx) {
             return s;
         }
-        String t = s;
-        while (t.length() > 1 && width(font, t + "...") > maxPx) {
-            t = t.substring(0, t.length() - 1);
+        String key = maxPx + ":" + s;
+        String r = FITS.get(key);
+        if (r == null) {
+            if (FITS.size() > 1000) {
+                FITS.clear();
+            }
+            String id = fontId();
+            r = TextFit.fit(t -> font.width(make(t, id)), s, maxPx);
+            FITS.put(key, r);
         }
-        return t + "...";
+        return r;
     }
 
     public static String trim(String s, int max) {

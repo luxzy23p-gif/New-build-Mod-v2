@@ -504,22 +504,68 @@ public final class ControlCenterScreen extends Screen {
         return in(mx, my, r[0], r[1], r[2], r[3]);
     }
 
+    /** Ikon bitmap digambar dari persegi gabungan (dihitung sekali per ikon), bukan baris demi baris. */
+    private static final java.util.Map<String[], int[]> ICON_RECTS = new java.util.IdentityHashMap<>();
+
     private static void icon(GuiGraphicsExtractor g, String[] bmp, int x, int y, int color) {
+        int[] rects = ICON_RECTS.get(bmp);
+        if (rects == null) {
+            rects = iconRects(bmp);
+            ICON_RECTS.put(bmp, rects);
+        }
+        for (int i = 0; i < rects.length; i += 4) {
+            g.fill(x + rects[i], y + rects[i + 1], x + rects[i + 2], y + rects[i + 3], color);
+        }
+    }
+
+    /** Gabungkan piksel '#' menjadi persegi: baris berurutan dengan potongan yang sama menjadi satu persegi. */
+    private static int[] iconRects(String[] bmp) {
+        java.util.List<int[]> out = new java.util.ArrayList<>();
+        boolean[][] used = new boolean[bmp.length][];
+        for (int r = 0; r < bmp.length; r++) {
+            used[r] = new boolean[bmp[r].length()];
+        }
         for (int r = 0; r < bmp.length; r++) {
             String row = bmp[r];
             int c = 0;
             while (c < row.length()) {
-                if (row.charAt(c) != '#') {
+                if (row.charAt(c) != '#' || used[r][c]) {
                     c++;
                     continue;
                 }
                 int s = c;
-                while (c < row.length() && row.charAt(c) == '#') {
+                while (c < row.length() && row.charAt(c) == '#' && !used[r][c]) {
                     c++;
                 }
-                g.fill(x + s, y + r, x + c, y + r + 1, color);
+                int r2 = r + 1;
+                while (r2 < bmp.length && sameRun(bmp[r2], s, c)) {
+                    r2++;
+                }
+                for (int k = r; k < r2; k++) {
+                    for (int m = s; m < c; m++) {
+                        used[k][m] = true;
+                    }
+                }
+                out.add(new int[] {s, r, c, r2});
             }
         }
+        int[] flat = new int[out.size() * 4];
+        for (int i = 0; i < out.size(); i++) {
+            System.arraycopy(out.get(i), 0, flat, i * 4, 4);
+        }
+        return flat;
+    }
+
+    private static boolean sameRun(String row, int s, int e) {
+        if (row.length() < e) {
+            return false;
+        }
+        for (int i = s; i < e; i++) {
+            if (row.charAt(i) != '#') {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void triRight(GuiGraphicsExtractor g, int x, int y, int h, int color) {
@@ -647,7 +693,7 @@ public final class ControlCenterScreen extends Screen {
         // dua bercak warna lembut seperti kaca buram
         int r = Math.max(24, Math.min(64, ph / 4));
         Glass.glow(g, x0 + (x1 - x0) / 3, py + ph / 2, r, accent, 0.16f);
-        Glass.glow(g, x0 + (x1 - x0) * 2 / 3, py + ph / 2 + r / 2, r, Themes.blend(accent, 0x4C8DFF, 0.6f), 0.12f);
+        Glass.glow(g, x0 + (x1 - x0) * 2 / 3, py + ph / 2 + r / 2, r * 3 / 4, Themes.blend(accent, 0x4C8DFF, 0.6f), 0.12f);
         g.fill(px + 16, py + 1, px + pw - 16, py + 2, a(0xFFFFFF, 0.12f));
         Glass.border(g, px, py, pw, ph, 14, a(0xFFFFFF, 0.22f), a(0xFFFFFF, 0.08f));
     }

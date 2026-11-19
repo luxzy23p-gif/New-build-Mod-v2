@@ -25,53 +25,81 @@ public final class LrclibFetcher {
     private LrclibFetcher() {
     }
 
+    /** Hasil pencarian: teks LRC (atau null) dan alasan singkat jika tidak ada. */
+    public record Result(String text, String reason) {
+    }
+
     /**
      * Teks LRC bersinkron yang cocok dengan lagu ini, atau null jika tidak ada versi yang pasti sinkron.
      * durationMs wajib diketahui: lirik dipilih hanya jika durasinya hampir sama dengan lagu.
      */
     public static String fetch(String artist, String title, long durationMs) {
+        return fetchDetailed(artist, title, durationMs).text();
+    }
+
+    /** Seperti fetch(), tetapi memberi alasan yang jelas kalau lirik tidak ditemukan. */
+    public static Result fetchDetailed(String artist, String title, long durationMs) {
         if (title == null || title.isBlank() || durationMs <= 0L) {
-            return null;
+            return new Result(null, "Song length unknown, so lyrics cannot be matched.");
         }
         boolean hasArtist = artist != null && !artist.isBlank();
+        java.util.List<LyricsPicker.Candidate> seen = new java.util.ArrayList<>();
+        boolean reached = false;
         try {
             long sec = Math.round(durationMs / 1000.0);
             if (hasArtist) {
                 String body = get(BASE + "get?track_name=" + enc(title) + "&artist_name=" + enc(artist)
                         + "&duration=" + Math.max(1, Math.min(3600, sec)));
-                LyricsPicker.Candidate c = LyricsPicker.pick(LyricsPicker.parse(body), title, artist, durationMs);
+                reached |= body != null;
+                java.util.List<LyricsPicker.Candidate> got = LyricsPicker.parse(body);
+                seen.addAll(got);
+                LyricsPicker.Candidate c = LyricsPicker.pick(got, title, artist, durationMs);
                 if (c != null) {
-                    return c.synced();
+                    return new Result(c.synced(), "");
                 }
                 pause();
             }
             String clean = cleanTitle(title);
             String[] urls = {
-                    BASE + "search?track_name=" + enc(title) + (hasArtist ? "&artist_name=" + enc(artist) : ""),
-                    BASE + "search?q=" + enc((hasArtist ? artist + " " : "") + clean)};
+                    BASE + "search?track_name=" + enc(clean) + (hasArtist ? "&artist_name=" + enc(artist) : ""),
+                    BASE + "search?q=" + enc((hasArtist ? artist + " " : "") + clean),
+                    BASE + "search?q=" + enc(clean)};
             for (String url : urls) {
                 String body = get(url);
-                LyricsPicker.Candidate c = LyricsPicker.pick(LyricsPicker.parse(body), title, artist, durationMs);
+                reached |= body != null;
+                java.util.List<LyricsPicker.Candidate> got = LyricsPicker.parse(body);
+                seen.addAll(got);
+                LyricsPicker.Candidate c = LyricsPicker.pick(got, title, artist, durationMs);
                 if (c == null && !clean.equals(title.strip())) {
-                    c = LyricsPicker.pick(LyricsPicker.parse(body), clean, artist, durationMs);
+                    c = LyricsPicker.pick(got, clean, artist, durationMs);
                 }
                 if (c != null) {
-                    return c.synced();
+                    return new Result(c.synced(), "");
                 }
                 pause();
             }
-            return null;
         } catch (IOException | RuntimeException e) {
-            return null;
+            if (seen.isEmpty()) {
+                return new Result(null, "Could not reach the lyrics service (check your internet).");
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return null;
+            return new Result(null, "");
         }
+        if (seen.isEmpty() && !reached) {
+            return new Result(null, "Could not reach the lyrics service (check your internet).");
+        }
+        return new Result(null, LyricsPicker.reason(seen, clean(title), artist, durationMs));
+    }
+
+    private static String clean(String title) {
+        return cleanTitle(title);
     }
 
     /** Judul tanpa tag di ujung seperti "(Official Video)" atau "[Lyrics]". */
     public static String cleanTitle(String title) {
-        String t = title.strip().replaceAll("\\s*[(\\[][^)\\]]*[)\\]]\\s*$", "").strip();
+        String t = title.strip().replaceAll("^\\d{1,3}\\s*(?:[.)]|\\s-\\s)\\s*", "")
+                .replaceAll("\\s*[(\\[][^)\\]]*[)\\]]\\s*$", "").strip();
         return t.isEmpty() ? title.strip() : t;
     }
 
