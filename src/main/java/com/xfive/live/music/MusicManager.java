@@ -19,6 +19,10 @@ public final class MusicManager {
     private static final long RESTART_THRESHOLD_MS = 3_000L;
     private static final long ADVANCE_WAIT_NANOS = 25_000_000_000L;
 
+    /** Pemutar luar (Spotify). Aktif hanya jika pengguna menyalakan mode ini. */
+    private volatile RemotePlayer remote;
+    private volatile boolean remoteMode;
+
     private volatile OnlineQueue onlineQueue;
     /** Setelah antrean online diminta memutar lagu berikutnya, tick tidak meminta lagi sampai batas waktu ini. */
     private volatile long advanceUntilNanos;
@@ -65,8 +69,53 @@ public final class MusicManager {
         return n;
     }
 
+    public void setRemote(RemotePlayer r) {
+        remote = r;
+    }
+
+    /** true jika tombol dan informasi pemutar sedang mengikuti pemutar luar (Spotify). */
+    public boolean remoteMode() {
+        return remoteMode && remote != null;
+    }
+
+    /** Menyalakan atau mematikan mode pemutar luar. Menyalakannya menjeda lagu lokal supaya tidak bertabrakan. */
+    public void setRemoteMode(boolean on) {
+        RemotePlayer r = remote;
+        if (r == null) {
+            remoteMode = false;
+            return;
+        }
+        if (on) {
+            if (player.isPlaying()) {
+                player.pause();
+            }
+            remoteMode = true;
+            r.setActive(true);
+        } else {
+            leaveRemote();
+        }
+    }
+
+    /** Dipanggil sebelum memutar lagu lokal atau online: Spotify dijeda dan kontrol kembali ke pemutar mod. */
+    private void leaveRemote() {
+        RemotePlayer r = remote;
+        if (remoteMode && r != null) {
+            remoteMode = false;
+            r.pause();
+            r.setActive(false);
+        }
+        remoteMode = false;
+    }
+
+    /** true jika lagu ini milik pemutar luar. */
+    public boolean isRemoteTrack(PlaylistManager.Track t) {
+        RemotePlayer r = remote;
+        return t != null && remoteMode && r != null && t == r.track();
+    }
+
     /** Memuat dan memutar lagu aktif. Mengembalikan false jika gagal (lihat status()). */
     public boolean playCurrent() {
+        leaveRemote();
         PlaylistManager.Track track = online != null ? online : playlist.current();
         if (track == null) {
             status = "Playlist kosong";
@@ -91,6 +140,7 @@ public final class MusicManager {
 
     /** Memutar lagu dari file sementara (Play online). Tidak masuk Library; Next/Prev kembali ke Library. */
     public void playOnline(PlaylistManager.Track track) {
+        leaveRemote();
         advanceUntilNanos = 0L;
         online = track;
         requestLoad(track);
@@ -111,6 +161,7 @@ public final class MusicManager {
 
     /** Memutar lagu Library nomor i (menggantikan lagu online jika ada). */
     public void playIndex(int i) {
+        leaveRemote();
         advanceUntilNanos = 0L;
         online = null;
         if (playlist.select(i)) {
@@ -139,6 +190,10 @@ public final class MusicManager {
     }
 
     public void togglePause() {
+        if (remoteMode()) {
+            remote.toggle();
+            return;
+        }
         if (loading != null) {
             return; // lagu sedang dimuat
         }
@@ -162,6 +217,10 @@ public final class MusicManager {
     }
 
     public void next() {
+        if (remoteMode()) {
+            remote.next();
+            return;
+        }
         if (online != null) {
             OnlineQueue q = onlineQueue;
             if (q != null && q.next(shuffle, repeatMode == REPEAT_ALL)) {
@@ -193,6 +252,10 @@ public final class MusicManager {
     }
 
     public void previous() {
+        if (remoteMode()) {
+            remote.previous();
+            return;
+        }
         if (online != null) {
             OnlineQueue q = onlineQueue;
             if (player.positionMs() <= RESTART_THRESHOLD_MS && q != null && q.previous()) {
@@ -212,6 +275,13 @@ public final class MusicManager {
 
     /** Pindah ke posisi tertentu di lagu, dengan fraction 0..1. */
     public void seekTo(float fraction) {
+        if (remoteMode()) {
+            long d = remote.durationMs();
+            if (d > 0) {
+                remote.seekMs((long) (Math.max(0f, Math.min(1f, fraction)) * d));
+            }
+            return;
+        }
         long dur = player.durationMs();
         if (dur > 0) {
             player.seekMs((long) (Math.max(0f, Math.min(1f, fraction)) * dur));
@@ -219,6 +289,9 @@ public final class MusicManager {
     }
 
     public void setVolume(float volume) {
+        if (remoteMode()) {
+            remote.setVolume(volume);
+        }
         player.setVolume(volume);
     }
 
@@ -228,6 +301,9 @@ public final class MusicManager {
 
     /** Dipanggil dari client tick. Mengurus lagu yang sudah habis sesuai mode ulang. */
     public void tick() {
+        if (remoteMode()) {
+            return;
+        }
         if (loading != null) {
             finishLoad();
             return;
@@ -316,7 +392,7 @@ public final class MusicManager {
 
     /** True selama lagu baru masih didekode di thread latar. */
     public boolean isLoading() {
-        return loading != null;
+        return !remoteMode() && loading != null;
     }
 
     public int repeatMode() {
@@ -351,20 +427,23 @@ public final class MusicManager {
     }
 
     public PlaylistManager.Track currentTrack() {
+        if (remoteMode()) {
+            return remote.track();
+        }
         PlaylistManager.Track o = online;
         return o != null ? o : playlist.current();
     }
 
     public long positionMs() {
-        return player.positionMs();
+        return remoteMode() ? remote.positionMs() : player.positionMs();
     }
 
     public long durationMs() {
-        return player.durationMs();
+        return remoteMode() ? remote.durationMs() : player.durationMs();
     }
 
     public boolean isPlaying() {
-        return player.isPlaying();
+        return remoteMode() ? remote.isPlaying() : player.isPlaying();
     }
 
     /** True jika pemutaran terakhir gagal. Dipakai pop-up untuk menampilkan pesan error. */

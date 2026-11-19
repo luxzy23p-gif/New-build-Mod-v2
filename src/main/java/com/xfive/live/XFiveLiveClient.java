@@ -45,6 +45,9 @@ public final class XFiveLiveClient implements ClientModInitializer {
     public static final XFiveConfig CONFIG = new XFiveConfig(FabricLoader.getInstance().getConfigDir());
     public static final MusicManager MUSIC = new MusicManager();
     public static final LyricsManager LYRICS = new LyricsManager();
+    /** Kontrol aplikasi Spotify di perangkat ini (login lewat Web API resmi). */
+    public static final com.xfive.live.spotify.SpotifyClient SPOTIFY = new com.xfive.live.spotify.SpotifyClient(
+            FabricLoader.getInstance().getConfigDir().resolve("xfive-spotify.properties"));
     /** Lagu online tanpa unduhan: pencarian, tangga lagu, antrean. Lagu dimuat ke cache sementara lalu diputar. */
     public static final OnlineManager ONLINE = new OnlineManager(
             XFiveLiveClient::cacheDir,
@@ -95,6 +98,8 @@ public final class XFiveLiveClient implements ClientModInitializer {
     public void onInitializeClient() {
         Registry.register(BuiltInRegistries.SOUND_EVENT, UI_SOUND_ID, UI_SOUND);
         CONFIG.load();
+        SPOTIFY.load();
+        MUSIC.setRemote(SPOTIFY);
         com.xfive.live.download.CacheCleaner.purge(cacheDir());
         com.xfive.live.config.DeviceInfo.detectAsync(FabricLoader.getInstance().getGameDir());
         reloadMusic();
@@ -131,6 +136,7 @@ public final class XFiveLiveClient implements ClientModInitializer {
         ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> {
             MUSIC.shutdown();
             ONLINE.shutdown();
+            SPOTIFY.shutdown();
         });
     }
 
@@ -319,23 +325,57 @@ public final class XFiveLiveClient implements ClientModInitializer {
         syncLyrics();
     }
 
-    /** Membaca file .lrc hanya saat lagu berganti, bukan tiap tick. Jika tidak ada, coba unduh dari internet. */
+    /** Keterangan singkat status lirik untuk lagu yang sedang diputar (ditampilkan di Now Playing). */
+    private static volatile String lyricsNote = "";
+    /** true selama lirik dari file masih harus dicocokkan dengan durasi lagu. */
+    private static boolean lrcCheckPending;
+
+    public static String lyricsNote() {
+        return lyricsNote;
+    }
+
+    /**
+     * Memasang lirik hanya saat lagu berganti, bukan tiap tick. Urutan: file .lrc buatan sendiri, lalu unduhan
+     * lrclib yang durasinya cocok. Lirik yang tidak pasti sinkron TIDAK dipakai (lebih baik kosong daripada meleset).
+     */
     private static void syncLyrics() {
         PlaylistManager.Track track = MUSIC.currentTrack();
         if (track != lastTrack) {
             lastTrack = track;
             lyricsGeneration++;
+            lrcCheckPending = false;
             if (track == null) {
                 LYRICS.clear();
+                lyricsNote = "";
+            } else if (ONLINE.nowSong() != null && MUSIC.isOnlineTrack(track) && ONLINE.nowSong().isPreview()) {
+                LYRICS.clear();
+                lyricsNote = "Preview 30 s: lyrics cannot be synced to a short clip.";
             } else {
                 Path lrc = findLrc(track);
-                if (lrc != null) {
-                    LYRICS.loadFile(lrc);
+                if (lrc != null && LYRICS.loadFile(lrc)) {
+                    lrcCheckPending = true;
+                    lyricsNote = "Lyrics from file";
                 } else {
                     LYRICS.clear();
                     if (CONFIG.autoLyrics) {
+                        lyricsNote = "Looking for synced lyrics...";
                         fetchLyricsAsync(track, lyricsGeneration);
+                    } else {
+                        lyricsNote = "Auto lyrics is off";
                     }
+                }
+            }
+        }
+        // lirik dari file yang jelas melewati akhir lagu = versi lain, buang lalu cari yang cocok
+        if (lrcCheckPending && MUSIC.durationMs() > 0L) {
+            lrcCheckPending = false;
+            if (com.xfive.live.lyrics.LyricsPicker.clearlyWrong(LYRICS.lines(), MUSIC.durationMs())) {
+                LYRICS.clear();
+                if (CONFIG.autoLyrics && lastTrack != null) {
+                    lyricsNote = "Lyrics file did not match this song. Looking for the right one...";
+                    fetchLyricsAsync(lastTrack, lyricsGeneration);
+                } else {
+                    lyricsNote = "Lyrics file did not match this song, so it is hidden.";
                 }
             }
         }
@@ -345,6 +385,7 @@ public final class XFiveLiveClient implements ClientModInitializer {
             pendingLyrics = null;
             if (ready.generation == lyricsGeneration) {
                 LYRICS.load(ready.text);
+                lyricsNote = "Synced lyrics found";
                 MUSIC.setStatus("Lirik ditemukan.");
             }
         }
@@ -362,10 +403,39 @@ public final class XFiveLiveClient implements ClientModInitializer {
                 return t;
             });
 
+    /** Menunggu sampai durasi lagu diketahui (dekode selesai), maksimal 10 detik. 0 jika tidak pernah diketahui. */
+    private static long waitForDuration(int generation) {
+        for (int i = 0; i < 100 && generation == lyricsGeneration; i++) {
+            long d = MUSIC.durationMs();
+            if (d > 0L) {
+                return d;
+            }
+            try {
+                Thread.sleep(100L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return 0L;
+            }
+        }
+        return 0L;
+    }
+
     private static void fetchLyricsAsync(PlaylistManager.Track track, int generation) {
         LYRICS_POOL.execute(() -> {
-            String text = com.xfive.live.lyrics.LrclibFetcher.fetch(track.artist(), track.title());
-            if (text == null || generation != lyricsGeneration) {
+            long dur = waitForDuration(generation);
+            if (generation != lyricsGeneration) {
+                return;
+            }
+            if (dur <= 0L) {
+                lyricsNote = "Song length unknown, so lyrics cannot be matched.";
+                return;
+            }
+            String text = com.xfive.live.lyrics.LrclibFetcher.fetch(track.artist(), track.title(), dur);
+            if (generation != lyricsGeneration) {
+                return;
+            }
+            if (text == null) {
+                lyricsNote = "No synced lyrics found for this exact version of the song.";
                 return;
             }
             try {

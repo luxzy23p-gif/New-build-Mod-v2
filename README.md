@@ -17,7 +17,9 @@ Tes ada di `tests/com/xfive/live/tests/XFiveTests.java` dan hanya memakai kode t
 - Sumber: Audius (lagu lengkap) dan Apple iTunes Search (cuplikan 30 detik, `ItunesSearch.java`). Tangga lagu 12 negara dari Apple Music Most Played (`HitCharts.java`).
 - Lagu online favorit disimpan sebagai teks (`FavoriteSongs.java`), bukan file. Bug favorit hilang (pemisah daftar salah di `XFiveConfig`) diperbaiki dan dites.
 - Kode murni (tanpa Minecraft) ada di `src/main/java/com/xfive/live/download/` dan dites dengan server HTTP palsu.
-- Spotify dan YouTube Music sengaja tidak diputar di dalam mod (dilindungi hak cipta).
+- Suara Spotify dan YouTube Music sengaja tidak diputar di dalam mod (dilindungi hak cipta).
+- **Spotify (kontrol)**: login resmi PKCE lewat `127.0.0.1:8898` (`spotify/`), membaca lagu yang diputar dan mengirim play/pause/next/prev/seek/volume ke aplikasi Spotify di HP (perlu Premium). Diuji dengan server Spotify palsu; belum pernah dicoba dengan akun asli.
+- **Lirik**: dipilih hanya jika judul, artis, dan durasinya cocok (`LyricsPicker.java`, dites). Klip 30 detik tidak diberi lirik. Lirik melayang punya kapsul kaca (Lyric bubble).
 - Halaman **Specs** membaca spesifikasi perangkat sendiri (`config/DeviceInfo.java`); kalau gagal memakai preset.
 
 ## UI Control Center 1.1.0

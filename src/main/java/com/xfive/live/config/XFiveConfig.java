@@ -55,6 +55,7 @@ public final class XFiveConfig {
     public boolean lyricsKaraoke = true;
     /** Tampilkan baris sebelumnya dan berikutnya (redup). */
     public boolean lyricsPreview = true;
+    public boolean lyricsBubble = true;
     /** Titik hitung mundur saat jeda instrumental panjang. */
     public boolean lyricsCountdown = true;
     /** Halaman Specs memakai spesifikasi perangkat yang terdeteksi (jika gagal, memakai preset). */
@@ -146,6 +147,7 @@ public final class XFiveConfig {
         lyricsAnim = com.xfive.live.lyrics.LyricStyle.normalize(p.getProperty("lyrics.anim", lyricsAnim));
         lyricsKaraoke = bool(p, "lyrics.karaoke", lyricsKaraoke);
         lyricsPreview = bool(p, "lyrics.preview", lyricsPreview);
+        lyricsBubble = bool(p, "lyrics.bubble", lyricsBubble);
         lyricsCountdown = bool(p, "lyrics.countdown", lyricsCountdown);
         specAuto = bool(p, "specs.auto", specAuto);
         lyricsOffsetMs = integer(p, "lyrics.offsetMs", lyricsOffsetMs, -3000, 3000);
@@ -206,6 +208,7 @@ public final class XFiveConfig {
         put(p, "lyrics.anim", lyricsAnim);
         put(p, "lyrics.karaoke", lyricsKaraoke);
         put(p, "lyrics.preview", lyricsPreview);
+        put(p, "lyrics.bubble", lyricsBubble);
         put(p, "lyrics.countdown", lyricsCountdown);
         put(p, "specs.auto", specAuto);
         put(p, "lyrics.offsetMs", lyricsOffsetMs);

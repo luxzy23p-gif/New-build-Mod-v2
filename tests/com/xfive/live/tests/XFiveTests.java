@@ -35,6 +35,7 @@ public final class XFiveTests {
         testConfig(work.resolve("config"));
         testFavoritesPersist(work.resolve("fav"));
         testThemes();
+        testLyricsPicker();
         testArtistStats();
         testFavoriteSongs();
         testLrclib();
@@ -42,6 +43,8 @@ public final class XFiveTests {
         testSpecSheet();
         testDeviceInfo();
         new DownloadTests(XFiveTests::check).run(work.resolve("download"));
+        Files.createDirectories(work.resolve("spotify"));
+        new SpotifyTests(XFiveTests::check).run(work.resolve("spotify"));
         System.out.println("passed=" + passed + " failed=" + failed);
         if (failed > 0) {
             System.exit(1);
@@ -130,6 +133,65 @@ public final class XFiveTests {
         check("scanSources gabung folder + file tanpa duplikat (2 lagu)", n == 2);
         check("scanSources membaca artis dari folder", pm.tracks().get(0).artist().equals("Artist"));
         check("scanSources melewati sumber yang tidak ada", pm.size() == 2);
+    }
+
+    private static String lrcOf(int lines, int stepSec) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines; i++) {
+            int t = i * stepSec;
+            sb.append(String.format("[%02d:%02d.00] line %d%n", t / 60, t % 60, i));
+        }
+        return sb.toString();
+    }
+
+    private static String q(String s) {
+        return s == null ? "null" : "\"" + s.replace("\n", "\\n") + "\"";
+    }
+
+    private static String cand(String title, String artist, int dur, boolean inst, String synced) {
+        return "{\"trackName\":" + q(title) + ",\"artistName\":" + q(artist) + ",\"duration\":" + dur
+                + ",\"instrumental\":" + inst + ",\"plainLyrics\":null,\"syncedLyrics\":" + q(synced) + "}";
+    }
+
+    static void testLyricsPicker() {
+        String full = lrcOf(40, 5);            // 40 baris, terakhir di 195 s
+        String json = "[" + cand("Hello", "Adele", 295, false, lrcOf(60, 5)) + ","
+                + cand("Hello (Radio Edit)", "Adele", 200, false, full) + ","
+                + cand("Hello", "Adele", 200, false, null) + ","
+                + cand("Hello", "Adele", 200, true, full) + ","
+                + cand("Hello", "Someone Else", 200, false, full) + ","
+                + cand("Hello", "Adele", 201, false, full) + "]";
+        var list = com.xfive.live.lyrics.LyricsPicker.parse(json);
+        check("lyrics parse 6 kandidat", list.size() == 6);
+        var best = com.xfive.live.lyrics.LyricsPicker.pick(list, "Hello", "Adele", 295_000L);
+        check("lyrics pilih versi yang durasinya sama (295 s)", best != null && best.durationSec() == 295.0);
+        var radio = com.xfive.live.lyrics.LyricsPicker.pick(list, "Hello", "Adele", 200_000L);
+        check("lyrics versi 200 s: hanya yang berlirik sinkron, artis benar, bukan instrumental",
+                radio != null && radio.durationSec() >= 200.0 && radio.synced() != null && radio.artist().equals("Adele"));
+        check("lyrics durasi jauh berbeda -> tidak ada", com.xfive.live.lyrics.LyricsPicker.pick(list, "Hello", "Adele", 250_000L) == null);
+        check("lyrics tanpa durasi -> tidak dipilih", com.xfive.live.lyrics.LyricsPicker.pick(list, "Hello", "Adele", 0L) == null);
+        check("lyrics selisih 3 s masih boleh", com.xfive.live.lyrics.LyricsPicker.pick(list, "Hello", "Adele", 298_000L) != null);
+        check("lyrics selisih 5 s ditolak", com.xfive.live.lyrics.LyricsPicker.pick(list, "Hello", "Adele", 300_000L) == null);
+        check("lyrics judul beda ditolak", com.xfive.live.lyrics.LyricsPicker.pick(list, "Goodbye", "Adele", 295_000L) == null);
+        check("lyrics hanya plain (tanpa waktu) ditolak",
+                com.xfive.live.lyrics.LyricsPicker.pick(com.xfive.live.lyrics.LyricsPicker.parse("[" + cand("A", "B", 100, false, null) + "]"), "A", "B", 100_000L) == null);
+        check("lyrics objek tunggal dibaca", com.xfive.live.lyrics.LyricsPicker.parse(cand("A", "B", 100, false, lrcOf(10, 9))).size() == 1);
+        check("lyrics JSON rusak -> kosong", com.xfive.live.lyrics.LyricsPicker.parse("{{oops").isEmpty()
+                && com.xfive.live.lyrics.LyricsPicker.parse(null).isEmpty() && com.xfive.live.lyrics.LyricsPicker.parse("[]").isEmpty());
+        check("lyrics normalisasi tag dan feat", com.xfive.live.lyrics.LyricsPicker.normalize("Song Name (Official Video) feat. X").equals("song name"));
+        check("lyrics judul sama setelah dibersihkan", com.xfive.live.lyrics.LyricsPicker.sameTitle("Hati-Hati di Jalan", "hati hati di jalan [Lyrics]"));
+        check("lyrics artis: kata yang sama", com.xfive.live.lyrics.LyricsPicker.sameArtist("Tenxi, Naykilla", "Naykilla & Tenxi"));
+        check("lyrics artis kosong/unknown dianggap cocok", com.xfive.live.lyrics.LyricsPicker.sameArtist("Unknown Artist", "Siapa saja"));
+        check("lyrics artis beda ditolak", !com.xfive.live.lyrics.LyricsPicker.sameArtist("Adele", "Coldplay"));
+        check("lyrics plausible normal", com.xfive.live.lyrics.LyricsPicker.plausible(full, 200_000L));
+        check("lyrics plausible: melewati akhir lagu ditolak", !com.xfive.live.lyrics.LyricsPicker.plausible(lrcOf(60, 5), 200_000L));
+        check("lyrics plausible: berhenti terlalu awal ditolak", !com.xfive.live.lyrics.LyricsPicker.plausible(lrcOf(5, 5), 200_000L));
+        check("lyrics plausible: terlalu sedikit baris ditolak", !com.xfive.live.lyrics.LyricsPicker.plausible("[00:10.00] a\n[01:00.00] b", 70_000L));
+        check("lyrics clearlyWrong melewati akhir", com.xfive.live.lyrics.LyricsPicker.clearlyWrong(com.xfive.live.lyrics.LrcParser.parse(lrcOf(60, 5)), 200_000L));
+        check("lyrics clearlyWrong tidak untuk yang pas", !com.xfive.live.lyrics.LyricsPicker.clearlyWrong(com.xfive.live.lyrics.LrcParser.parse(full), 200_000L)
+                && !com.xfive.live.lyrics.LyricsPicker.clearlyWrong(java.util.List.of(), 200_000L));
+        check("lyrics cleanTitle buang tag di ujung", com.xfive.live.lyrics.LrclibFetcher.cleanTitle("Sial (Official Audio)").equals("Sial")
+                && com.xfive.live.lyrics.LrclibFetcher.cleanTitle("(Only Tag)").equals("(Only Tag)"));
     }
 
     static void testThemes() {

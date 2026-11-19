@@ -25,6 +25,8 @@ Kalau folder itu belum ada, buat sendiri dengan nama persis `xfive-music` (huruf
    Dengan pola ini, nama artis dan judul tampil di HUD.
 4. Lirik: kalau tidak ada file lirik, mod mengunduh lirik bersinkron **otomatis** dari lrclib.net saat lagu diputar
    (perlu internet; hasilnya disimpan di folder `xfive-lirik`). Bisa dimatikan di **Settings > Auto-download lyrics**.
+   Lirik hanya dipakai kalau **judul, artis, dan durasinya cocok** dengan lagu (selisih paling banyak 4 detik). Kalau tidak ada versi
+   yang pasti sinkron, lirik tidak ditampilkan (lebih baik kosong daripada meleset). Lirik tanpa waktu (teks biasa) tidak dipakai.
    Kalau mau lirik sendiri, taruh file **Artis - Judul.lrc** di folder yang sama dengan lagu atau di `xfive-lirik`.
 5. Tampilan lirik diatur di halaman **Custom HUD**: animasi baris (Fade, Rise, Drop, Pop, Typewriter, Words, Wave),
    sorot karaoke, baris sebelumnya/berikutnya, titik hitung mundur saat musik instrumental (**Instrumental dots**), posisi, dan **Lyrics sync** untuk menggeser waktu kalau lirik terlalu cepat/lambat.
@@ -108,7 +110,7 @@ Catatan: cara paling mudah dan paling pasti adalah menyalin lagu langsung ke fol
 
 ## Batasan saat ini
 
-- Spotify dan YouTube Music tidak bisa diputar di dalam mod (lagunya dilindungi hak cipta). Musik berasal dari file di HP atau dari lagu online (Audius dan cuplikan Apple, lihat bagian "Lagu online").
+- Suara Spotify dan YouTube Music tidak bisa diputar di dalam mod (lagunya dilindungi hak cipta). Spotify bisa **dikontrol** dari mod (lihat bagian "Sambungkan Spotify"). YouTube Music tidak punya jalur resmi untuk itu.
 - HUD di dalam game tidak bisa diklik (kursor terkunci). Tekan F6 untuk membuka Control Center dan mengendalikan musik.
 - Pemutaran di Android belum diuji langsung di perangkat. Kalau tidak berbunyi, kirim status yang muncul di menu.
 
@@ -140,3 +142,29 @@ Halaman **Specs** kini membaca spesifikasi HP/perangkat yang sedang dipakai (nam
 - Belum dicoba di HP: cara pembacaannya bergantung pada izin Android di Zalith. Kalau gagal, halaman otomatis memakai preset.
 
 Catatan jujur: semua ini sudah dites bagian logikanya di komputer dan terbukti terkompilasi di GitHub, tapi tampilannya belum dicoba langsung di HP.
+
+## Lirik melayang di dalam game
+
+Saat lagu diputar, lirik bersinkron muncul **melayang di layar** (kapsul kaca gelap di belakang teks supaya mudah dibaca).
+- Nyalakan/matikan: **Settings > HUD > Lyrics HUD**. Kapsul: **Lyric bubble**. Geser posisinya: **Move HUDs (drag)**.
+- Kalau liriknya masih dicari atau tidak ada, beberapa detik pertama lagu muncul keterangannya.
+- Lagu cuplikan 30 detik (Apple) **tidak** diberi lirik: klip pendek itu dipotong dari tengah lagu, jadi waktunya tidak bisa dicocokkan.
+- Tidak semua lagu punya lirik bersinkron di lrclib.net. Kalau tidak ada, kamu bisa menaruh file `.lrc` sendiri di `xfive-lirik`.
+
+## Sambungkan Spotify (mengontrol aplikasi Spotify di HP)
+
+Mod ini tidak memutar suara Spotify sendiri. Ia **membaca dan mengontrol aplikasi Spotify** yang berjalan di HP yang sama:
+judul, tombol play/pause/next/prev, geser posisi, volume, Dynamic Bar, dan lirik ikut mengikuti.
+
+Yang dibutuhkan: **Spotify Premium** (aturan Spotify untuk kontrol pemutaran) dan aplikasi Spotify terpasang di HP.
+
+1. Buka **developer.spotify.com/dashboard** di browser HP, masuk dengan akun Spotify, lalu **Create app** (nama bebas).
+2. Di kolom **Redirect URIs** isi persis: `http://127.0.0.1:8898/callback` lalu simpan.
+   (Di game: **Settings > Sources > Copy Redirect URI** menyalin alamat itu, tinggal ditempel.)
+3. Salin **Client ID** aplikasimu (32 huruf dan angka). Di game: **Settings > Sources > Paste Client ID**.
+4. Tekan **Connect Spotify**. Browser terbuka (kalau tidak, alamat login sudah tersalin: tempel di browser), tekan **Agree**.
+5. Kembali ke Minecraft. Nyalakan **Use Spotify as the player**. Putar lagu di aplikasi Spotify; judul dan lirik muncul di mod.
+
+Catatan: Client ID bukan kata sandi, tapi file `config/xfive-spotify.properties` berisi tanda masuk akunmu, jangan dibagikan.
+Kalau muncul "No Spotify device is active", buka aplikasi Spotify dan tekan play sekali.
+Memutar lagu dari Library atau online di mod otomatis menjeda Spotify.

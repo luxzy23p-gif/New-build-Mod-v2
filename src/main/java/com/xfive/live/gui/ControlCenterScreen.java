@@ -22,6 +22,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
@@ -121,6 +122,8 @@ public final class ControlCenterScreen extends Screen {
 
     private List<Item> items = new ArrayList<>();
     private long itemsSig = Long.MIN_VALUE;
+    private int spotifyVersion = -1;
+    private String spotifyNote = "";
     private String curKey = "";
     private String curKey2 = "";
 
@@ -608,6 +611,11 @@ public final class ControlCenterScreen extends Screen {
                 if (tab == Tab.SPECS) {
                     drawSpecs(g, font, accent);
                 } else {
+                    int spv = XFiveLiveClient.SPOTIFY.version();
+                    if (tab == Tab.SOURCES && spv != spotifyVersion) {
+                        spotifyVersion = spv;
+                        buildRows();
+                    }
                     drawRows(g, font, accent, mouseX, mouseY, clip);
                 }
             }
@@ -743,6 +751,10 @@ public final class ControlCenterScreen extends Screen {
                     if (!line.isBlank()) {
                         return line;
                     }
+                }
+                String lyricNote = XFiveLiveClient.lyricsNote();
+                if (XFiveLiveClient.MUSIC.currentTrack() != null && !lyricNote.isEmpty()) {
+                    return lyricNote;
                 }
                 int n = XFiveLiveClient.MUSIC.playlist().size();
                 return n == 0 ? "Nothing in the queue yet" : n + (n == 1 ? " song in your library" : " songs in your library");
@@ -1000,6 +1012,10 @@ public final class ControlCenterScreen extends Screen {
     }
 
     private static void toggleFavorite(PlaylistManager.Track t) {
+        if (XFiveLiveClient.MUSIC.isRemoteTrack(t)) {
+            XFiveLiveClient.MUSIC.setStatus("Spotify songs: use the heart in the Spotify app.");
+            return;
+        }
         String key = t.path().toAbsolutePath().toString();
         if (!XFiveLiveClient.CONFIG.favoriteMusic.add(key)) {
             XFiveLiveClient.CONFIG.favoriteMusic.remove(key);
@@ -2151,6 +2167,7 @@ public final class ControlCenterScreen extends Screen {
                             () -> c.lyricsAnim = LyricStyle.next(c.lyricsAnim)));
                     out.add(toggle("Karaoke highlight", () -> c.lyricsKaraoke, () -> c.lyricsKaraoke = !c.lyricsKaraoke));
                     out.add(toggle("Prev/next lines", () -> c.lyricsPreview, () -> c.lyricsPreview = !c.lyricsPreview));
+                    out.add(toggle("Lyric bubble", () -> c.lyricsBubble, () -> c.lyricsBubble = !c.lyricsBubble));
                     out.add(toggle("Instrumental dots", () -> c.lyricsCountdown, () -> c.lyricsCountdown = !c.lyricsCountdown));
                     out.add(cycle("Lyrics position", () -> new String[] {"Top", "Middle", "Bottom"}[c.lyricsPosition],
                             () -> c.lyricsPosition = (c.lyricsPosition + 1) % 3));
@@ -2209,8 +2226,9 @@ public final class ControlCenterScreen extends Screen {
                     out.add(note("Charts: top songs of 12 countries, updated about every 30 minutes."));
                     out.add(heading("Your own music"));
                     out.add(note("Put mp3/m4a/ogg/wav files in the xfive-music folder (Now Playing > Add)."));
-                    out.add(heading("Spotify and YouTube Music"));
-                    out.add(note("Their songs are copyright-locked, so XFiveLive cannot play them itself."));
+                    addSpotifyRows(out);
+                    out.add(heading("YouTube Music"));
+                    out.add(note("Has no official way to be controlled by other apps, so it cannot be connected."));
                 }
                 default -> {
                 }
@@ -2218,6 +2236,82 @@ public final class ControlCenterScreen extends Screen {
         }
         rows = out;
         layoutRows();
+    }
+
+    private static String clipboardGet() {
+        try {
+            String s = GLFW.glfwGetClipboardString(GLFW.glfwGetCurrentContext());
+            return s == null ? "" : s.strip();
+        } catch (RuntimeException e) {
+            return "";
+        }
+    }
+
+    private static void clipboardSet(String text) {
+        try {
+            GLFW.glfwSetClipboardString(GLFW.glfwGetCurrentContext(), text);
+        } catch (RuntimeException ignored) {
+            // clipboard tidak tersedia
+        }
+    }
+
+    /** Mencoba membuka browser. Jika gagal, alamat sudah ada di clipboard untuk ditempel manual. */
+    private static void openBrowser(String url) {
+        try {
+            Object os = Class.forName("net.minecraft.Util").getMethod("getPlatform").invoke(null);
+            Class<?> type = os.getClass();
+            while (!java.lang.reflect.Modifier.isPublic(type.getModifiers()) && type.getSuperclass() != null) {
+                type = type.getSuperclass();
+            }
+            type.getMethod("openUri", String.class).invoke(os, url);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // tidak bisa membuka browser otomatis
+        }
+    }
+
+    private void addSpotifyRows(List<Row> out) {
+        var sp = XFiveLiveClient.SPOTIFY;
+        var music = XFiveLiveClient.MUSIC;
+        out.add(heading("Spotify (controls the Spotify app on this phone)"));
+        out.add(note("Needs Spotify Premium and the Spotify app open on this phone."));
+        if (!sp.connected()) {
+            out.add(note("1) On developer.spotify.com make an app."));
+            out.add(note("2) Add the Redirect URI (copy it here):"));
+            out.add(action("Copy Redirect URI", () -> {
+                clipboardSet("http://127.0.0.1:8898/callback");
+                spotifyNote = "Redirect URI copied.";
+                buildRows();
+            }));
+            out.add(note("3) Copy the app's Client ID, then paste:"));
+            out.add(action("Paste Client ID", () -> {
+                sp.setClientId(clipboardGet());
+                buildRows();
+            }));
+            out.add(note("Client ID: " + sp.maskedClientId()));
+            out.add(action("Connect Spotify", () -> {
+                String url = sp.begin();
+                if (url != null) {
+                    clipboardSet(url);
+                    openBrowser(url);
+                    spotifyNote = "If no page opened, the login link is copied: paste it in your browser.";
+                    buildRows();
+                }
+            }));
+        } else {
+            out.add(note("Connected."));
+            out.add(toggle("Use Spotify as the player", music::remoteMode, () -> music.setRemoteMode(!music.remoteMode())));
+            out.add(note("Play something in the Spotify app. Buttons, Dynamic Bar and lyrics follow it."));
+            out.add(action("Disconnect Spotify", () -> {
+                music.setRemoteMode(false);
+                sp.disconnect();
+            }));
+        }
+        if (!sp.message().isEmpty()) {
+            out.add(note(sp.message()));
+        }
+        if (!spotifyNote.isEmpty()) {
+            out.add(note(spotifyNote));
+        }
     }
 
     private static void setCustom(float h, float s, float v) {
@@ -2283,7 +2377,8 @@ public final class ControlCenterScreen extends Screen {
 
     private void playOrPause() {
         var m = XFiveLiveClient.MUSIC;
-        if (m.currentTrack() == null && m.playlist().size() > 0 && XFiveLiveClient.ONLINE.nowEntry() == null) {
+        if (!m.remoteMode() && m.currentTrack() == null && m.playlist().size() > 0
+                && XFiveLiveClient.ONLINE.nowEntry() == null) {
             XFiveLiveClient.playLocal(0);
         } else {
             m.togglePause();

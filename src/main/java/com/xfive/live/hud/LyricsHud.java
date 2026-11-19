@@ -40,6 +40,7 @@ public final class LyricsHud {
         }
         LyricsManager ly = XFiveLiveClient.LYRICS;
         if (ly.isEmpty()) {
+            renderNote(g, c);
             return;
         }
         long songPos = LyricStyle.shifted(XFiveLiveClient.MUSIC.positionMs(), c.lyricsOffsetMs);
@@ -66,6 +67,9 @@ public final class LyricsHud {
         float alpha = c.hudOpacity * c.customTransparency;
         int accent = GlassPanelRenderer.accent(c.theme);
 
+        if (c.lyricsBubble) {
+            drawBubble(g, font, c, ly, idx, cx, baseY, lineH, sw, alpha, accent);
+        }
         if (c.lyricsPreview) {
             drawCentered(g, font, ly.textAt(idx - 1), cx, baseY, GlassPanelRenderer.MUTED);
             drawCentered(g, font, ly.textAt(idx + 1), cx, baseY + lineH * 2, GlassPanelRenderer.MUTED);
@@ -81,6 +85,46 @@ public final class LyricsHud {
             int w = Math.min(sw - 16, WIDTH);
             g.fill(cx - w / 2, baseY - 4, cx + w / 2, baseY - 3, GlassPanelRenderer.argb(accent, alpha));
         }
+    }
+
+    /** Kapsul kaca gelap di belakang lirik supaya terbaca di atas dunia Minecraft yang ramai. */
+    private static void drawBubble(GuiGraphicsExtractor g, Font font, XFiveConfig c, LyricsManager ly, int idx, int cx,
+                                   int baseY, int lineH, int sw, float alpha, int accent) {
+        int textW = Math.max(60, GlassPanelRenderer.width(font, ly.textAt(idx)));
+        int top = c.lyricsPreview ? baseY : baseY + lineH;
+        int bottom = (c.lyricsPreview ? baseY + lineH * 2 : baseY + lineH) + 9;
+        if (c.lyricsPreview) {
+            textW = Math.max(textW, GlassPanelRenderer.width(font, ly.textAt(idx - 1)));
+            textW = Math.max(textW, GlassPanelRenderer.width(font, ly.textAt(idx + 1)));
+        }
+        int w = Math.min(sw - 8, textW + 28);
+        int x = cx - w / 2;
+        int y = top - 6;
+        int h = bottom - top + 12;
+        float a = Math.max(0.35f, alpha);
+        Glass.roundRect(g, x, y, w, h, Math.min(10, h / 2), Glass.argb(0x0B0D14, 0.62f * a),
+                Glass.argb(0x14161F, 0.72f * a));
+        Glass.border(g, x, y, w, h, Math.min(10, h / 2), Glass.argb(accent, 0.45f * a), Glass.argb(0xFFFFFF, 0.10f * a));
+    }
+
+    /** Beberapa detik pertama lagu: beri tahu status lirik (sedang dicari, atau kenapa tidak ada). */
+    private static void renderNote(GuiGraphicsExtractor g, XFiveConfig c) {
+        if (!c.autoLyrics && XFiveLiveClient.lyricsNote().isEmpty()) {
+            return;
+        }
+        String note = XFiveLiveClient.lyricsNote();
+        if (note.isEmpty() || XFiveLiveClient.MUSIC.currentTrack() == null
+                || XFiveLiveClient.MUSIC.positionMs() > 6_000L) {
+            return;
+        }
+        Font font = GlassPanelRenderer.font();
+        int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+        int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+        String text = GlassPanelRenderer.fit(font, note, Math.max(60, sw - 40));
+        int w = GlassPanelRenderer.width(font, text) + 20;
+        int y = presetBaseY(c, sh) + lineHeight(c);
+        Glass.roundRect(g, (sw - w) / 2, y - 5, w, 19, 9, Glass.argb(0x0B0D14, 0.55f));
+        drawCentered(g, font, text, sw / 2, y, GlassPanelRenderer.MUTED);
     }
 
     /** true jika posisi lirik sudah diseret bebas (bukan posisi preset). Nilai -1 berarti preset. */

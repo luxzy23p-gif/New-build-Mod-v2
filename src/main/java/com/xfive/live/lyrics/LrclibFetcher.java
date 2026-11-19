@@ -25,27 +25,59 @@ public final class LrclibFetcher {
     private LrclibFetcher() {
     }
 
-    /** Teks LRC bersinkron untuk lagu ini, atau null jika tidak ketemu / tidak ada internet. */
-    public static String fetch(String artist, String title) {
-        if (title == null || title.isBlank()) {
+    /**
+     * Teks LRC bersinkron yang cocok dengan lagu ini, atau null jika tidak ada versi yang pasti sinkron.
+     * durationMs wajib diketahui: lirik dipilih hanya jika durasinya hampir sama dengan lagu.
+     */
+    public static String fetch(String artist, String title, long durationMs) {
+        if (title == null || title.isBlank() || durationMs <= 0L) {
             return null;
         }
+        boolean hasArtist = artist != null && !artist.isBlank();
         try {
-            String body = get(BASE + "get?track_name=" + enc(title)
-                    + (artist == null || artist.isBlank() ? "" : "&artist_name=" + enc(artist)));
-            String synced = body == null ? null : firstSynced(body);
-            if (synced != null) {
-                return synced;
+            long sec = Math.round(durationMs / 1000.0);
+            if (hasArtist) {
+                String body = get(BASE + "get?track_name=" + enc(title) + "&artist_name=" + enc(artist)
+                        + "&duration=" + Math.max(1, Math.min(3600, sec)));
+                LyricsPicker.Candidate c = LyricsPicker.pick(LyricsPicker.parse(body), title, artist, durationMs);
+                if (c != null) {
+                    return c.synced();
+                }
+                pause();
             }
-            String q = (artist == null || artist.isBlank() ? "" : artist + " ") + title;
-            body = get(BASE + "search?q=" + enc(q));
-            return body == null ? null : firstSynced(body);
+            String clean = cleanTitle(title);
+            String[] urls = {
+                    BASE + "search?track_name=" + enc(title) + (hasArtist ? "&artist_name=" + enc(artist) : ""),
+                    BASE + "search?q=" + enc((hasArtist ? artist + " " : "") + clean)};
+            for (String url : urls) {
+                String body = get(url);
+                LyricsPicker.Candidate c = LyricsPicker.pick(LyricsPicker.parse(body), title, artist, durationMs);
+                if (c == null && !clean.equals(title.strip())) {
+                    c = LyricsPicker.pick(LyricsPicker.parse(body), clean, artist, durationMs);
+                }
+                if (c != null) {
+                    return c.synced();
+                }
+                pause();
+            }
+            return null;
         } catch (IOException | RuntimeException e) {
             return null;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return null;
         }
+    }
+
+    /** Judul tanpa tag di ujung seperti "(Official Video)" atau "[Lyrics]". */
+    public static String cleanTitle(String title) {
+        String t = title.strip().replaceAll("\\s*[(\\[][^)\\]]*[)\\]]\\s*$", "").strip();
+        return t.isEmpty() ? title.strip() : t;
+    }
+
+    /** Jeda singkat antar permintaan supaya tidak melewati batas lrclib (sekitar 90 permintaan per menit). */
+    private static void pause() throws InterruptedException {
+        Thread.sleep(300L);
     }
 
     private static String get(String url) throws IOException, InterruptedException {
