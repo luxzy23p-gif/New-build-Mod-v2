@@ -272,7 +272,34 @@ final class SpotifyTests {
             c2.load();
             ok("client id tersimpan di file dan dibaca lagi", c2.clientId().equals(cid) && !c2.connected());
             ok("tanpa client id tidak bisa login", new SpotifyClient(null).begin() == null);
-            ok("lagu penuh: belum tersambung -> alasan jelas", new SpotifyClient(null).playFull("Hello", "Adele").contains("Connect Spotify"));
+            ok("lagu penuh: belum tersambung -> alasan jelas", !new SpotifyClient(null).playFull("Hello", "Adele").played() && new SpotifyClient(null).playFull("Hello", "Adele").text().contains("Connect Spotify"));
+
+            // ---- lagu penuh: Premium langsung diputar; Free/tanpa perangkat -> buka tautan ----
+            Path cf = work.resolve("spotify-connected.properties");
+            Files.writeString(cf, "spotify.clientId=" + cid + "\nspotify.refreshToken=ref1\n");
+            SpotifyClient live = new SpotifyClient(cf);
+            live.load();
+            List<String> opened = new CopyOnWriteArrayList<>();
+            live.setLinkOpener(opened::add);
+            validToken = "tok2";
+            commandCode = 204;
+            var r1 = live.playFull("Hello", "Adele");
+            ok("premium: diputar langsung, tidak membuka tautan", r1.played() && r1.text().contains("Playing the full song") && opened.isEmpty());
+            commandCode = 403;
+            var r2 = live.playFull("Hello", "Adele");
+            ok("free (403): tautan lagu dibuka di aplikasi Spotify", r2.played() && r2.text().contains("Free")
+                    && opened.equals(List.of("https://open.spotify.com/track/AAA")));
+            commandCode = 404;
+            opened.clear();
+            var r3 = live.playFull("Hello", "Adele");
+            ok("tanpa perangkat aktif (404): tautan dibuka", r3.played() && r3.text().contains("No Spotify device") && opened.size() == 1);
+            live.setLinkOpener(null);
+            var r4 = live.playFull("Hello", "Adele");
+            ok("tanpa pembuka tautan: gagal dengan petunjuk", !r4.played() && r4.text().contains("Spotify app"));
+            commandCode = 204;
+            var r5 = live.playFull("Lagu Tidak Ada", "Nobody");
+            ok("tidak ada di Spotify: gagal dengan alasan", !r5.played() && r5.text().contains("not found on Spotify"));
+            validToken = "tok1";
 
             // keadaan + interpolasi posisi
             SpotifyClient pc = new SpotifyClient(null);

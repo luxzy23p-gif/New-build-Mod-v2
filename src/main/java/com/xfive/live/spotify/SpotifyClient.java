@@ -385,35 +385,67 @@ public final class SpotifyClient implements RemotePlayer {
         });
     }
 
+    private volatile java.util.function.Consumer<String> linkOpener;
+
+    /** Pembuka tautan (browser/aplikasi). Dipakai saat Spotify Free tidak bisa dikontrol lewat API. */
+    public void setLinkOpener(java.util.function.Consumer<String> opener) {
+        linkOpener = opener;
+    }
+
     /**
-     * Mencari lagu ini di Spotify lalu memutarnya PENUH di aplikasi Spotify (butuh Premium dan aplikasi Spotify
-     * yang terbuka). Memblokir, jadi hanya dipanggil dari thread latar. Mengembalikan null jika berhasil,
-     * atau kalimat singkat berisi alasannya.
+     * Mencari lagu ini di Spotify lalu memutarnya PENUH di aplikasi Spotify. Memblokir, jadi hanya dipanggil dari
+     * thread latar. Akun Premium: lagu langsung diputar. Akun Free (API menolak perintah putar) atau tidak ada
+     * perangkat aktif: lagu dibuka di aplikasi Spotify lewat tautan, pengguna cukup menekan play, dan mod tetap
+     * mengikuti lagunya (membaca status boleh untuk akun Free).
      */
-    public String playFull(String title, String artist) {
+    public com.xfive.live.download.OnlineManager.FullResult playFull(String title, String artist) {
         if (!connected()) {
-            return "Connect Spotify (Settings > Sources) to hear the full song.";
+            return com.xfive.live.download.OnlineManager.FullResult.fail("Connect Spotify (Settings > Sources) to hear the full song.");
         }
         try {
-            String[] reason = {null};
+            SpotifyApi.Found[] hit = {null};
+            String[] result = {null};
+            boolean[] direct = {false};
             withToken(a -> {
                 for (SpotifyApi.Found f : SpotifyApi.searchTrack(a, title, artist)) {
                     if (com.xfive.live.lyrics.LyricsPicker.sameTitle(title, f.title())
                             && com.xfive.live.lyrics.LyricsPicker.sameArtist(artist, f.artist())) {
-                        SpotifyApi.playUri(a, f.uri());
-                        return;
+                        hit[0] = f;
+                        break;
                     }
                 }
-                reason[0] = "This song was not found on Spotify.";
+                if (hit[0] == null) {
+                    return;
+                }
+                try {
+                    SpotifyApi.playUri(a, hit[0].uri());
+                    direct[0] = true;
+                } catch (SpotifyException e) {
+                    if (e.status() != 403 && e.status() != 404) {
+                        throw e;
+                    }
+                    result[0] = e.status() == 403
+                            ? "Spotify Free cannot be controlled by apps, so the song was opened in Spotify: press play there. The mod follows it."
+                            : "No Spotify device is active, so the song was opened in Spotify: press play there. The mod follows it.";
+                }
             });
-            if (reason[0] == null) {
-                pool.schedule(this::pollSafely, 900L, TimeUnit.MILLISECONDS);
+            if (hit[0] == null) {
+                return com.xfive.live.download.OnlineManager.FullResult.fail("This song was not found on Spotify.");
             }
-            return reason[0];
+            if (direct[0]) {
+                pool.schedule(this::pollSafely, 900L, TimeUnit.MILLISECONDS);
+                return com.xfive.live.download.OnlineManager.FullResult.ok("Playing the full song on Spotify.");
+            }
+            java.util.function.Consumer<String> open = linkOpener;
+            if (open == null) {
+                return com.xfive.live.download.OnlineManager.FullResult.fail(result[0].replace("the song was opened in Spotify: press play there. The mod follows it.", "open the Spotify app and play once."));
+            }
+            open.accept("https://open.spotify.com/track/" + hit[0].uri().substring(hit[0].uri().lastIndexOf(':') + 1));
+            return com.xfive.live.download.OnlineManager.FullResult.ok(result[0]);
         } catch (SpotifyException e) {
-            return e.getMessage();
+            return com.xfive.live.download.OnlineManager.FullResult.fail(e.getMessage());
         } catch (IOException e) {
-            return "Cannot reach Spotify.";
+            return com.xfive.live.download.OnlineManager.FullResult.fail("Cannot reach Spotify.");
         }
     }
 

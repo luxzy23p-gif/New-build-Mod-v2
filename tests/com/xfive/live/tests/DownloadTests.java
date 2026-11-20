@@ -538,14 +538,14 @@ final class DownloadTests {
                 int before = ready2.size();
                 dm4.setFullPlayer((t, art) -> {
                     asked.add(t + "|" + art);
-                    return null;
+                    return OnlineManager.FullResult.ok("Playing the full song on Spotify.");
                 });
                 dm4.playEntries(List.of(OnlineManager.Entry.of(hs.get(1))), 0);
                 Thread.sleep(700);
                 ok("full player: asked for a hit with no free full song", asked.size() == 1 && asked.get(0).startsWith(hs.get(1).name() + "|"));
                 ok("full player: no preview downloaded, message says Spotify", ready2.size() == before
                         && dm4.message().contains("full song on Spotify"));
-                dm4.setFullPlayer((t, art) -> "This song was not found on Spotify.");
+                dm4.setFullPlayer((t, art) -> OnlineManager.FullResult.fail("This song was not found on Spotify."));
                 dm4.playEntries(List.of(OnlineManager.Entry.of(hs.get(1))), 0);
                 end = System.currentTimeMillis() + 8000;
                 while (ready2.size() < before + 1 && System.currentTimeMillis() < end) {
@@ -557,7 +557,7 @@ final class DownloadTests {
                 asked.clear();
                 dm4.setFullPlayer((t, art) -> {
                     asked.add(t);
-                    return null;
+                    return OnlineManager.FullResult.ok("Playing the full song on Spotify.");
                 });
                 dm4.playEntries(List.of(OnlineManager.Entry.of(hs.get(0))), 0);
                 end = System.currentTimeMillis() + 8000;

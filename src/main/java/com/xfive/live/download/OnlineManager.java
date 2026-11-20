@@ -102,8 +102,19 @@ public final class OnlineManager implements OnlineQueue {
     private final PlayQueue<Entry> queue = new PlayQueue<>();
     /** Pemutar lagu penuh di luar mod (Spotify). null = tidak ada. */
     public interface FullPlayer {
-        /** Memutar lagu penuh. Mengembalikan null jika berhasil, atau alasan singkat jika gagal. Memblokir. */
-        String playFull(String title, String artist);
+        /** Memutar lagu penuh di pemutar luar. played=false berarti gagal dan text berisi alasannya. Memblokir. */
+        FullResult playFull(String title, String artist);
+    }
+
+    /** Hasil FullPlayer: played = lagu penuh akan berbunyi di pemutar luar; text = keterangan untuk pengguna. */
+    public record FullResult(boolean played, String text) {
+        public static FullResult ok(String text) {
+            return new FullResult(true, text);
+        }
+
+        public static FullResult fail(String text) {
+            return new FullResult(false, text);
+        }
     }
 
     private volatile FullPlayer fullPlayer;
@@ -334,16 +345,16 @@ public final class OnlineManager implements OnlineQueue {
                 // cuplikan 30 detik: coba dulu versi penuhnya di Spotify
                 Song song = e.song();
                 Thread t = new Thread(() -> {
-                    String why = full.playFull(song.title(), song.artist());
+                    FullResult res = full.playFull(song.title(), song.artist());
                     if (seq != playSeq.get()) {
                         return;
                     }
-                    if (why == null) {
-                        message = "Playing the full song on Spotify.";
+                    if (res.played()) {
+                        message = res.text();
                         version.incrementAndGet();
                         return;
                     }
-                    fullHint = why;
+                    fullHint = res.text();
                     enqueueSong(song);
                 }, "xfive-full");
                 t.setDaemon(true);
@@ -374,16 +385,16 @@ public final class OnlineManager implements OnlineQueue {
         FullPlayer full = fullPlayer;
         if (found == null && full != null) {
             // lagu hits komersial tidak ada versi penuh gratis: coba putar penuh lewat Spotify
-            String why = full.playFull(hit.name(), com.xfive.live.download.HitCharts.firstArtist(hit.artist()));
+            FullResult res = full.playFull(hit.name(), HitCharts.firstArtist(hit.artist()));
             if (seq != playSeq.get()) {
                 return;
             }
-            if (why == null) {
-                message = "Playing the full song on Spotify.";
+            if (res.played()) {
+                message = res.text();
                 version.incrementAndGet();
                 return;
             }
-            fullHint = why;
+            fullHint = res.text();
         }
         if (found == null) {
             try {

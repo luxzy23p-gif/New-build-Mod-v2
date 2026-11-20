@@ -71,6 +71,20 @@ public final class XFiveLiveClient implements ClientModInitializer {
             "# Baris yang diawali tanda # diabaikan.",
             "");
 
+    /** Membuka tautan di browser/aplikasi bawaan perangkat (misalnya aplikasi Spotify). Diam jika tidak bisa. */
+    public static void openLink(String url) {
+        try {
+            Object os = Class.forName("net.minecraft.Util").getMethod("getPlatform").invoke(null);
+            Class<?> type = os.getClass();
+            while (!java.lang.reflect.Modifier.isPublic(type.getModifiers()) && type.getSuperclass() != null) {
+                type = type.getSuperclass();
+            }
+            type.getMethod("openUri", String.class).invoke(os, url);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // tidak bisa membuka tautan otomatis
+        }
+    }
+
     /** Memutar efek UI untuk membuka/menutup Music Center. */
     public static void playUiSound() {
         Minecraft mc = Minecraft.getInstance();
@@ -101,12 +115,13 @@ public final class XFiveLiveClient implements ClientModInitializer {
         SPOTIFY.load();
         MUSIC.setRemote(SPOTIFY);
         // lagu hits yang hanya punya cuplikan 30 detik: putar versi penuhnya lewat Spotify jika sudah tersambung
+        SPOTIFY.setLinkOpener(XFiveLiveClient::openLink);
         ONLINE.setFullPlayer((title, artist) -> {
-            String why = SPOTIFY.playFull(title, artist);
-            if (why == null) {
+            var res = SPOTIFY.playFull(title, artist);
+            if (res.played()) {
                 Minecraft.getInstance().execute(() -> MUSIC.setRemoteMode(true));
             }
-            return why;
+            return res;
         });
         com.xfive.live.download.CacheCleaner.purge(cacheDir());
         com.xfive.live.config.DeviceInfo.detectAsync(FabricLoader.getInstance().getGameDir());

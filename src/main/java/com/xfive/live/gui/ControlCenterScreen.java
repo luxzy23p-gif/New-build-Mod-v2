@@ -2305,23 +2305,14 @@ public final class ControlCenterScreen extends Screen {
 
     /** Mencoba membuka browser. Jika gagal, alamat sudah ada di clipboard untuk ditempel manual. */
     private static void openBrowser(String url) {
-        try {
-            Object os = Class.forName("net.minecraft.Util").getMethod("getPlatform").invoke(null);
-            Class<?> type = os.getClass();
-            while (!java.lang.reflect.Modifier.isPublic(type.getModifiers()) && type.getSuperclass() != null) {
-                type = type.getSuperclass();
-            }
-            type.getMethod("openUri", String.class).invoke(os, url);
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
-            // tidak bisa membuka browser otomatis
-        }
+        XFiveLiveClient.openLink(url);
     }
 
     private void addSpotifyRows(List<Row> out) {
         var sp = XFiveLiveClient.SPOTIFY;
         var music = XFiveLiveClient.MUSIC;
         out.add(heading("Spotify (controls the Spotify app on this phone)"));
-        out.add(note("Needs Spotify Premium and the Spotify app open on this phone."));
+        out.add(note("Premium: songs play by themselves. Free: the song opens in the Spotify app, press play there."));
         if (!sp.connected()) {
             out.add(note("1) On developer.spotify.com make an app."));
             out.add(note("2) Add the Redirect URI (copy it here):"));

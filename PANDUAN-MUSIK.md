@@ -151,7 +151,7 @@ Lirik tampil sebagai **pil kecil di tengah atas layar**, sejajar notch/kamera da
 
 ## Kenapa lagu hits cuma 30 detik?
 
-Lagu hits dari Charts umumnya tidak ada versi penuh gratisnya, jadi mod memutar **cuplikan 30 detik** dari Apple. Untuk memutar **lagu penuh**, sambungkan Spotify (Settings > Sources, butuh Spotify Premium dan aplikasi Spotify terbuka). Setelah tersambung, mod mencari lagu itu di Spotify dan memutarnya penuh di aplikasi Spotify; tombol, waktu, dan lirik tetap ikut. Kalau gagal, alasannya tampil di pesan Now Playing.
+Lagu hits dari Charts umumnya tidak ada versi penuh gratisnya, jadi mod memutar **cuplikan 30 detik** dari Apple. Untuk memutar **lagu penuh**, sambungkan Spotify (Settings > Sources, butuh Spotify Premium dan aplikasi Spotify terbuka). Setelah tersambung, mod mencari lagu itu di Spotify dan memutarnya penuh di aplikasi Spotify; tombol, waktu, dan lirik tetap ikut. Kalau akunmu **Free** (Spotify menolak perintah dari aplikasi lain), lagu dibuka otomatis di aplikasi Spotify lewat tautan: tekan **play** di sana, lalu mod tetap mengikuti lagunya (tombol, waktu, lirik). Membaca status lagu boleh untuk akun Free; hanya perintah putar/jeda yang butuh Premium. Kalau tetap gagal, alasannya tampil di pesan Now Playing.
 
 ## Lirik melayang di dalam game
 
