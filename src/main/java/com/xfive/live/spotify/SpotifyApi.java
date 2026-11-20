@@ -10,6 +10,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -162,6 +163,68 @@ public final class SpotifyApi {
         command("PUT", "/v1/me/player/volume?volume_percent=" + Math.max(0, Math.min(100, percent)), access);
     }
 
+    /** Satu lagu hasil pencarian Spotify. */
+    public record Found(String uri, String title, String artist, long durationMs) {
+    }
+
+    /** Mencari lagu di katalog Spotify (maksimal 5 hasil). */
+    public static List<Found> searchTrack(String access, String title, String artist) throws IOException {
+        String q = "track:" + title.replace('"', ' ').strip()
+                + (artist == null || artist.isBlank() ? "" : " artist:" + artist.replace('"', ' ').strip());
+        Resp r = call("GET", apiBase + "/v1/search?type=track&limit=5&q=" + enc(q), access, null);
+        check(r);
+        return parseSearch(r.text);
+    }
+
+    /** Membaca jawaban pencarian: tracks.items[] dengan uri, name, duration_ms, artists[].name. */
+    public static List<Found> parseSearch(String json) throws IOException {
+        List<Found> out = new ArrayList<>();
+        try {
+            Map<String, Object> root = MiniJson.asMap(MiniJson.parse(json));
+            Map<String, Object> tracks = root == null ? null : MiniJson.asMap(root.get("tracks"));
+            List<Object> items = tracks == null ? null : MiniJson.asList(tracks.get("items"));
+            if (items == null) {
+                throw new SpotifyException(0, "Spotify search answer was not understood.");
+            }
+            for (Object o : items) {
+                Map<String, Object> m = MiniJson.asMap(o);
+                if (m == null) {
+                    continue;
+                }
+                String uri = MiniJson.str(m.get("uri"));
+                String name = MiniJson.str(m.get("name"));
+                if (uri == null || uri.isBlank() || name == null) {
+                    continue;
+                }
+                StringBuilder who = new StringBuilder();
+                List<Object> artists = MiniJson.asList(m.get("artists"));
+                if (artists != null) {
+                    for (Object a : artists) {
+                        Map<String, Object> am = MiniJson.asMap(a);
+                        String an = am == null ? null : MiniJson.str(am.get("name"));
+                        if (an != null && !an.isBlank()) {
+                            who.append(who.length() == 0 ? "" : ", ").append(an);
+                        }
+                    }
+                }
+                out.add(new Found(uri, name, who.toString(), (long) MiniJson.num(m.get("duration_ms"), 0)));
+            }
+        } catch (RuntimeException e) {
+            throw new SpotifyException(0, "Spotify search answer was not understood.");
+        }
+        return out;
+    }
+
+    /** Memutar satu lagu penuh di perangkat Spotify yang aktif (butuh Premium). */
+    public static void playUri(String access, String uri) throws IOException {
+        String body = "{\"uris\":[\"" + uri.replace("\\", "").replace("\"", "") + "\"]}";
+        Resp r = call("PUT", apiBase + "/v1/me/player/play", access, body, "application/json");
+        if (r.code >= 200 && r.code < 300) {
+            return;
+        }
+        check(r);
+    }
+
     private static void command(String method, String path, String access) throws IOException {
         Resp r = call(method, apiBase + path, access, null);
         if (r.code >= 200 && r.code < 300) {
@@ -190,6 +253,11 @@ public final class SpotifyApi {
     }
 
     private static Resp call(String method, String url, String bearer, String formBody) throws IOException {
+        return call(method, url, bearer, formBody, "application/x-www-form-urlencoded");
+    }
+
+    private static Resp call(String method, String url, String bearer, String formBody, String contentType)
+            throws IOException {
         HttpURLConnection c;
         try {
             c = (HttpURLConnection) URI.create(url).toURL().openConnection();
@@ -208,7 +276,7 @@ public final class SpotifyApi {
             }
             if (formBody != null) {
                 byte[] b = formBody.getBytes(StandardCharsets.UTF_8);
-                c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                c.setRequestProperty("Content-Type", contentType);
                 c.setDoOutput(true);
                 c.setFixedLengthStreamingMode(b.length);
                 try (OutputStream o = c.getOutputStream()) {

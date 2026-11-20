@@ -30,6 +30,8 @@ final class SpotifyTests {
     private volatile int playerCode = 200;
     private volatile int commandCode = 204;
     private volatile String validToken = "tok1";
+    private volatile String lastBody = "";
+    private volatile String searchJson = "";
 
     SpotifyTests(BiConsumer<String, Boolean> check) {
         this.check = check;
@@ -100,6 +102,7 @@ final class SpotifyTests {
             String auth = ex.getRequestHeaders().getFirst("Authorization");
             String path = ex.getRequestURI().toString();
             hits.add(ex.getRequestMethod() + " " + path + " " + auth);
+            lastBody = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             if (auth == null || !auth.equals("Bearer " + validToken)) {
                 send(ex, 401, "{\"error\":{\"status\":401}}");
                 return;
@@ -109,6 +112,15 @@ final class SpotifyTests {
             } else {
                 send(ex, commandCode, "{}");
             }
+        });
+        s.createContext("/v1/search", ex -> {
+            String auth = ex.getRequestHeaders().getFirst("Authorization");
+            hits.add("SEARCH " + ex.getRequestURI().getRawQuery() + " " + auth);
+            if (auth == null || !auth.equals("Bearer " + validToken)) {
+                send(ex, 401, "{}");
+                return;
+            }
+            send(ex, 200, searchJson);
         });
         s.start();
         String base = "http://127.0.0.1:" + s.getAddress().getPort();
@@ -177,6 +189,26 @@ final class SpotifyTests {
             ok("404 = buka aplikasi Spotify (pesan jelas)", m404.contains("Spotify app"));
             commandCode = 204;
 
+            // ---- cari lagu penuh dan putar ----
+            searchJson = "{\"tracks\":{\"items\":[{\"uri\":\"spotify:track:AAA\",\"name\":\"Hello\",\"duration_ms\":295000,"
+                    + "\"artists\":[{\"name\":\"Adele\"}]},{\"uri\":\"spotify:track:BBB\",\"name\":\"Hello (Live)\",\"duration_ms\":1,\"artists\":[]}]}}";
+            List<SpotifyApi.Found> found = SpotifyApi.searchTrack("tok1", "Hello", "Adele");
+            ok("cari lagu: dua hasil dibaca", found.size() == 2 && found.get(0).uri().equals("spotify:track:AAA")
+                    && found.get(0).artist().equals("Adele") && found.get(0).durationMs() == 295000L);
+            ok("cari lagu: permintaan memuat judul, artis, tipe track",
+                    hits.stream().anyMatch(h -> h.startsWith("SEARCH ") && h.contains("type=track") && h.contains("track%3AHello")
+                            && h.contains("artist%3AAdele") && h.endsWith("Bearer tok1")));
+            boolean badSearch = false;
+            try {
+                SpotifyApi.parseSearch("{\"oops\":1}");
+            } catch (SpotifyException e) {
+                badSearch = true;
+            }
+            ok("cari lagu: jawaban aneh -> error rapi", badSearch);
+            SpotifyApi.playUri("tok1", "spotify:track:AAA");
+            ok("putar lagu penuh: PUT play dengan uris JSON", hits.contains("PUT /v1/me/player/play Bearer tok1")
+                    && lastBody.equals("{\"uris\":[\"spotify:track:AAA\"]}"));
+
             // ---- login lewat alamat lokal ----
             SpotifyAuth a = SpotifyAuth.open(cid, 0);
             ok("redirect lokal 127.0.0.1", a.redirectUri().matches("http://127\\.0\\.0\\.1:\\d+/callback"));
@@ -240,6 +272,7 @@ final class SpotifyTests {
             c2.load();
             ok("client id tersimpan di file dan dibaca lagi", c2.clientId().equals(cid) && !c2.connected());
             ok("tanpa client id tidak bisa login", new SpotifyClient(null).begin() == null);
+            ok("lagu penuh: belum tersambung -> alasan jelas", new SpotifyClient(null).playFull("Hello", "Adele").contains("Connect Spotify"));
 
             // keadaan + interpolasi posisi
             SpotifyClient pc = new SpotifyClient(null);

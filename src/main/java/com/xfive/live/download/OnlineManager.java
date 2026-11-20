@@ -100,6 +100,19 @@ public final class OnlineManager implements OnlineQueue {
     private final AtomicInteger searchSeq = new AtomicInteger();
 
     private final PlayQueue<Entry> queue = new PlayQueue<>();
+    /** Pemutar lagu penuh di luar mod (Spotify). null = tidak ada. */
+    public interface FullPlayer {
+        /** Memutar lagu penuh. Mengembalikan null jika berhasil, atau alasan singkat jika gagal. Memblokir. */
+        String playFull(String title, String artist);
+    }
+
+    private volatile FullPlayer fullPlayer;
+    private volatile String fullHint = "";
+
+    public void setFullPlayer(FullPlayer p) {
+        fullPlayer = p;
+    }
+
     private volatile Entry nowEntry;
     private volatile Song nowSong;
     private volatile String message = "";
@@ -232,7 +245,9 @@ public final class OnlineManager implements OnlineQueue {
                 return; // pengguna sudah memilih lagu lain
             }
             nowSong = job.song;
-            message = job.song.isPreview() ? "Preview 30 s: the full song is not on the free services." : "";
+            message = job.song.isPreview()
+                    ? "Preview 30 s: the full song is not on the free services." + (fullHint.isEmpty() ? "" : " " + fullHint)
+                    : "";
         }
         version.incrementAndGet();
         try {
@@ -314,6 +329,28 @@ public final class OnlineManager implements OnlineQueue {
         if (e.song() != null) {
             message = "Loading \"" + e.song().title() + "\"...";
             version.incrementAndGet();
+            FullPlayer full = fullPlayer;
+            if (e.song().isPreview() && full != null) {
+                // cuplikan 30 detik: coba dulu versi penuhnya di Spotify
+                Song song = e.song();
+                Thread t = new Thread(() -> {
+                    String why = full.playFull(song.title(), song.artist());
+                    if (seq != playSeq.get()) {
+                        return;
+                    }
+                    if (why == null) {
+                        message = "Playing the full song on Spotify.";
+                        version.incrementAndGet();
+                        return;
+                    }
+                    fullHint = why;
+                    enqueueSong(song);
+                }, "xfive-full");
+                t.setDaemon(true);
+                t.start();
+                return;
+            }
+            fullHint = "";
             enqueueSong(e.song());
             return;
         }
@@ -332,6 +369,21 @@ public final class OnlineManager implements OnlineQueue {
             found = HitCharts.bestMatch(hit, AudiusSearch.search(hit.query(), 15));
         } catch (IOException | RuntimeException ex) {
             err = ex.getMessage() == null ? "no internet?" : ex.getMessage();
+        }
+        fullHint = "";
+        FullPlayer full = fullPlayer;
+        if (found == null && full != null) {
+            // lagu hits komersial tidak ada versi penuh gratis: coba putar penuh lewat Spotify
+            String why = full.playFull(hit.name(), com.xfive.live.download.HitCharts.firstArtist(hit.artist()));
+            if (seq != playSeq.get()) {
+                return;
+            }
+            if (why == null) {
+                message = "Playing the full song on Spotify.";
+                version.incrementAndGet();
+                return;
+            }
+            fullHint = why;
         }
         if (found == null) {
             try {

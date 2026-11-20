@@ -385,6 +385,38 @@ public final class SpotifyClient implements RemotePlayer {
         });
     }
 
+    /**
+     * Mencari lagu ini di Spotify lalu memutarnya PENUH di aplikasi Spotify (butuh Premium dan aplikasi Spotify
+     * yang terbuka). Memblokir, jadi hanya dipanggil dari thread latar. Mengembalikan null jika berhasil,
+     * atau kalimat singkat berisi alasannya.
+     */
+    public String playFull(String title, String artist) {
+        if (!connected()) {
+            return "Connect Spotify (Settings > Sources) to hear the full song.";
+        }
+        try {
+            String[] reason = {null};
+            withToken(a -> {
+                for (SpotifyApi.Found f : SpotifyApi.searchTrack(a, title, artist)) {
+                    if (com.xfive.live.lyrics.LyricsPicker.sameTitle(title, f.title())
+                            && com.xfive.live.lyrics.LyricsPicker.sameArtist(artist, f.artist())) {
+                        SpotifyApi.playUri(a, f.uri());
+                        return;
+                    }
+                }
+                reason[0] = "This song was not found on Spotify.";
+            });
+            if (reason[0] == null) {
+                pool.schedule(this::pollSafely, 900L, TimeUnit.MILLISECONDS);
+            }
+            return reason[0];
+        } catch (SpotifyException e) {
+            return e.getMessage();
+        } catch (IOException e) {
+            return "Cannot reach Spotify.";
+        }
+    }
+
     @Override
     public void toggle() {
         boolean playing = isPlaying();

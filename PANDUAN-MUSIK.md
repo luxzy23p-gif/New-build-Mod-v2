@@ -143,6 +143,16 @@ Halaman **Specs** kini membaca spesifikasi HP/perangkat yang sedang dipakai (nam
 
 Catatan jujur: semua ini sudah dites bagian logikanya di komputer dan terbukti terkompilasi di GitHub, tapi tampilannya belum dicoba langsung di HP.
 
+## Lirik di atas layar (pil notch)
+
+Lirik tampil sebagai **pil kecil di tengah atas layar**, sejajar notch/kamera dan Dynamic Island: waktu lagu di kiri, kata yang sedang dinyanyikan disorot kapsul putih, baris berikutnya pudar di belakangnya. Waktunya mengikuti lagu otomatis. Jika Dynamic Island sedang terbuka, pil turun tepat di bawahnya.
+- Ganti gaya: **Settings > HUD > Lyric style** (Notch pill / Floating).
+- Sorot per kata adalah perkiraan (file lirik hanya punya waktu per baris).
+
+## Kenapa lagu hits cuma 30 detik?
+
+Lagu hits dari Charts umumnya tidak ada versi penuh gratisnya, jadi mod memutar **cuplikan 30 detik** dari Apple. Untuk memutar **lagu penuh**, sambungkan Spotify (Settings > Sources, butuh Spotify Premium dan aplikasi Spotify terbuka). Setelah tersambung, mod mencari lagu itu di Spotify dan memutarnya penuh di aplikasi Spotify; tombol, waktu, dan lirik tetap ikut. Kalau gagal, alasannya tampil di pesan Now Playing.
+
 ## Lirik melayang di dalam game
 
 Saat lagu diputar, lirik bersinkron muncul **melayang di layar** (kapsul kaca gelap di belakang teks supaya mudah dibaca).

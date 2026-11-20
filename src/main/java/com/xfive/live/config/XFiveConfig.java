@@ -56,6 +56,8 @@ public final class XFiveConfig {
     /** Tampilkan baris sebelumnya dan berikutnya (redup). */
     public boolean lyricsPreview = true;
     public boolean lyricsBubble = true;
+    /** Lirik sebagai pil di atas layar (sejajar notch/Dynamic Island), bukan melayang di tengah. */
+    public boolean lyricsPill = true;
     /** Titik hitung mundur saat jeda instrumental panjang. */
     public boolean lyricsCountdown = true;
     /** Halaman Specs memakai spesifikasi perangkat yang terdeteksi (jika gagal, memakai preset). */
@@ -148,6 +150,7 @@ public final class XFiveConfig {
         lyricsKaraoke = bool(p, "lyrics.karaoke", lyricsKaraoke);
         lyricsPreview = bool(p, "lyrics.preview", lyricsPreview);
         lyricsBubble = bool(p, "lyrics.bubble", lyricsBubble);
+        lyricsPill = bool(p, "lyrics.pill", lyricsPill);
         lyricsCountdown = bool(p, "lyrics.countdown", lyricsCountdown);
         specAuto = bool(p, "specs.auto", specAuto);
         lyricsOffsetMs = integer(p, "lyrics.offsetMs", lyricsOffsetMs, -3000, 3000);
@@ -209,6 +212,7 @@ public final class XFiveConfig {
         put(p, "lyrics.karaoke", lyricsKaraoke);
         put(p, "lyrics.preview", lyricsPreview);
         put(p, "lyrics.bubble", lyricsBubble);
+        put(p, "lyrics.pill", lyricsPill);
         put(p, "lyrics.countdown", lyricsCountdown);
         put(p, "specs.auto", specAuto);
         put(p, "lyrics.offsetMs", lyricsOffsetMs);

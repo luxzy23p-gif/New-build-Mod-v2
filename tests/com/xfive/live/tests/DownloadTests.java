@@ -533,6 +533,43 @@ final class DownloadTests {
                 }
                 ok("search: full songs first, then previews", dm4.results().size() == 4 && !dm4.results().get(0).isPreview()
                         && dm4.results().get(3).isPreview() && "anything".equals(dm4.searchQuery()));
+                // ---- lagu penuh lewat Spotify bila tidak ada versi gratis ----
+                List<String> asked = new CopyOnWriteArrayList<>();
+                int before = ready2.size();
+                dm4.setFullPlayer((t, art) -> {
+                    asked.add(t + "|" + art);
+                    return null;
+                });
+                dm4.playEntries(List.of(OnlineManager.Entry.of(hs.get(1))), 0);
+                Thread.sleep(700);
+                ok("full player: asked for a hit with no free full song", asked.size() == 1 && asked.get(0).startsWith(hs.get(1).name() + "|"));
+                ok("full player: no preview downloaded, message says Spotify", ready2.size() == before
+                        && dm4.message().contains("full song on Spotify"));
+                dm4.setFullPlayer((t, art) -> "This song was not found on Spotify.");
+                dm4.playEntries(List.of(OnlineManager.Entry.of(hs.get(1))), 0);
+                end = System.currentTimeMillis() + 8000;
+                while (ready2.size() < before + 1 && System.currentTimeMillis() < end) {
+                    Thread.sleep(20);
+                }
+                Thread.sleep(100);
+                ok("full player failed: falls back to preview and says why", ready2.size() == before + 1 && dm4.nowSong() != null
+                        && dm4.nowSong().isPreview() && dm4.message().contains("not found on Spotify"));
+                asked.clear();
+                dm4.setFullPlayer((t, art) -> {
+                    asked.add(t);
+                    return null;
+                });
+                dm4.playEntries(List.of(OnlineManager.Entry.of(hs.get(0))), 0);
+                end = System.currentTimeMillis() + 8000;
+                while (ready2.size() < before + 2 && System.currentTimeMillis() < end) {
+                    Thread.sleep(20);
+                }
+                ok("full player not asked when a free full song exists", asked.isEmpty() && ready2.size() == before + 2
+                        && !dm4.nowSong().isPreview());
+                dm4.playEntries(List.of(OnlineManager.Entry.of(new Song("it:5", "A", "B", 30, "https://x/p.m4a"))), 0);
+                Thread.sleep(500);
+                ok("full player tried first for a 30 s preview song from search", asked.contains("A") && ready2.size() == before + 2);
+                dm4.setFullPlayer(null);
                 dm4.clearSearch();
                 ok("clear search", dm4.results().isEmpty() && dm4.searchState() == OnlineManager.SearchState.IDLE);
             } finally {

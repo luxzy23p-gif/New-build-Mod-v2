@@ -45,12 +45,36 @@ public final class XFiveTests {
         new DownloadTests(XFiveTests::check).run(work.resolve("download"));
         new Mp4Tests(XFiveTests::check).run();
         testTextFit();
+        testPillMath();
         Files.createDirectories(work.resolve("spotify"));
         new SpotifyTests(XFiveTests::check).run(work.resolve("spotify"));
         System.out.println("passed=" + passed + " failed=" + failed);
         if (failed > 0) {
             System.exit(1);
         }
+    }
+
+    static void testPillMath() {
+        int[] lens = {2, 4, 3, 5};
+        check("pil: kata pertama di awal", com.xfive.live.lyrics.LyricStyle.wordAt(lens, 0, 2000) == 0);
+        check("pil: kata terakhir di akhir", com.xfive.live.lyrics.LyricStyle.wordAt(lens, 2000, 2000) == 3);
+        check("pil: setelah selesai tetap kata terakhir", com.xfive.live.lyrics.LyricStyle.wordAt(lens, 99_000, 2000) == 3);
+        int prev = -1;
+        boolean mono = true;
+        for (long t = 0; t <= 2000; t += 50) {
+            int w = com.xfive.live.lyrics.LyricStyle.wordAt(lens, t, 2000);
+            mono &= w >= prev;
+            prev = w;
+        }
+        check("pil: indeks kata tidak pernah mundur", mono);
+        check("pil: tanpa kata -> -1", com.xfive.live.lyrics.LyricStyle.wordAt(new int[0], 100, 1000) == -1);
+        check("pil: waktu negatif -> kata pertama", com.xfive.live.lyrics.LyricStyle.wordAt(lens, -500, 2000) == 0);
+        check("pil: singMs pendek minimal 1,2 s", com.xfive.live.lyrics.LyricStyle.singMs(5, 10_000) == 1200);
+        check("pil: singMs dibatasi 90% durasi baris", com.xfive.live.lyrics.LyricStyle.singMs(80, 2000) == 1800);
+        check("pil: singMs 30 huruf = 3,3 s", com.xfive.live.lyrics.LyricStyle.singMs(30, 10_000) == 3300);
+        check("pil: scroll 0 jika muat", com.xfive.live.lyrics.LyricStyle.scrollTarget(50, 200, 150) == 0);
+        check("pil: scroll tidak melewati ujung", com.xfive.live.lyrics.LyricStyle.scrollTarget(480, 100, 500) == 400);
+        check("pil: scroll menaruh kata di 30%", com.xfive.live.lyrics.LyricStyle.scrollTarget(200, 100, 1000) == 170);
     }
 
     static void testTextFit() {

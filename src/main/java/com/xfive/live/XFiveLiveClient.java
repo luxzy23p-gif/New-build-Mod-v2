@@ -100,6 +100,14 @@ public final class XFiveLiveClient implements ClientModInitializer {
         CONFIG.load();
         SPOTIFY.load();
         MUSIC.setRemote(SPOTIFY);
+        // lagu hits yang hanya punya cuplikan 30 detik: putar versi penuhnya lewat Spotify jika sudah tersambung
+        ONLINE.setFullPlayer((title, artist) -> {
+            String why = SPOTIFY.playFull(title, artist);
+            if (why == null) {
+                Minecraft.getInstance().execute(() -> MUSIC.setRemoteMode(true));
+            }
+            return why;
+        });
         com.xfive.live.download.CacheCleaner.purge(cacheDir());
         com.xfive.live.config.DeviceInfo.detectAsync(FabricLoader.getInstance().getGameDir());
         reloadMusic();

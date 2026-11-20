@@ -162,6 +162,46 @@ public final class LyricStyle {
         return Math.max(0f, Math.min(1f, (songPos - from) / (float) (to - from)));
     }
 
+    /**
+     * Lama (ms) yang dipakai untuk menyanyikan satu baris pada sorot kata: sekitar 110 ms per huruf, paling sedikit
+     * 1,2 detik, paling banyak 90% durasi baris. Setelah itu kata terakhir tetap menyala sampai baris berganti.
+     */
+    public static long singMs(int chars, long lineDurationMs) {
+        long want = Math.max(1200L, chars * 110L);
+        long cap = Math.max(300L, (long) (lineDurationMs * 0.9));
+        return Math.min(want, cap);
+    }
+
+    /**
+     * Indeks kata yang sedang dinyanyikan, atau -1 jika tidak ada kata. Waktu dibagi sesuai panjang kata
+     * (kata panjang lebih lama). LRC hanya punya waktu per baris, jadi ini perkiraan, bukan waktu asli per kata.
+     */
+    public static int wordAt(int[] wordLens, long sinceMs, long singMs) {
+        if (wordLens == null || wordLens.length == 0) {
+            return -1;
+        }
+        long total = 0;
+        for (int l : wordLens) {
+            total += Math.max(1, l) + 1;
+        }
+        float p = singMs <= 0 ? 1f : Math.max(0f, Math.min(1f, sinceMs / (float) singMs));
+        float at = p * total;
+        long cum = 0;
+        for (int i = 0; i < wordLens.length; i++) {
+            cum += Math.max(1, wordLens[i]) + 1;
+            if (at < cum) {
+                return i;
+            }
+        }
+        return wordLens.length - 1;
+    }
+
+    /** Geseran teks (piksel) supaya kata aktif berada sekitar 30% dari kiri area teks, tidak melewati ujung teks. */
+    public static int scrollTarget(int wordX, int innerW, int totalW) {
+        int max = Math.max(0, totalW - innerW);
+        return Math.max(0, Math.min(max, wordX - Math.round(innerW * 0.30f)));
+    }
+
     /** Menggeser posisi lagu dengan offset, tidak pernah di bawah 0. */
     public static long shifted(long positionMs, int offsetMs) {
         return Math.max(0L, positionMs + offsetMs);

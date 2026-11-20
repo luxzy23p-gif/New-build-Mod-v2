@@ -2209,6 +2209,8 @@ public final class ControlCenterScreen extends Screen {
                     out.add(toggle("Dynamic Island", () -> c.dynamicIsland, () -> c.dynamicIsland = !c.dynamicIsland));
                     out.add(toggle("Lyrics HUD", () -> c.enableLyrics, () -> c.enableLyrics = !c.enableLyrics));
                     out.add(heading("Lyrics"));
+                    out.add(cycle("Lyric style", () -> c.lyricsPill ? "Notch pill" : "Floating",
+                            () -> c.lyricsPill = !c.lyricsPill));
                     out.add(cycle("Lyric animation", () -> LyricStyle.NAMES[LyricStyle.indexOf(c.lyricsAnim)],
                             () -> c.lyricsAnim = LyricStyle.next(c.lyricsAnim)));
                     out.add(toggle("Karaoke highlight", () -> c.lyricsKaraoke, () -> c.lyricsKaraoke = !c.lyricsKaraoke));

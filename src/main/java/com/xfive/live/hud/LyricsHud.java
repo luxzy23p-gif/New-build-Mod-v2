@@ -23,6 +23,9 @@ public final class LyricsHud {
     /** Kotak lirik saat ini: {x, y, lebar, tinggi}. Dipakai juga oleh menu untuk menggeser. */
     public static int[] box() {
         XFiveConfig c = XFiveLiveClient.CONFIG;
+        if (c.lyricsPill) {
+            return LyricPill.box();
+        }
         int[] pos = c.hudPositions.get("lyricsHud");
         int sw = Minecraft.getInstance().getWindow().getGuiScaledWidth();
         int sh = Minecraft.getInstance().getWindow().getGuiScaledHeight();
@@ -39,6 +42,10 @@ public final class LyricsHud {
             return;
         }
         LyricsManager ly = XFiveLiveClient.LYRICS;
+        if (c.lyricsPill) {
+            LyricPill.render(g, c, ly);
+            return;
+        }
         if (ly.isEmpty()) {
             renderNote(g, c);
             return;

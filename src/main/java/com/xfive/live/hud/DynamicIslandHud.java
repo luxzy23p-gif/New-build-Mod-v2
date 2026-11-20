@@ -61,6 +61,12 @@ public final class DynamicIslandHud {
         return new int[] {x, y, w, h};
     }
 
+    /** true selama kartu/kapsul Dynamic Island sedang tampil (dipakai pil lirik untuk memberi tempat). */
+    public static boolean visible() {
+        XFiveConfig c = XFiveLiveClient.CONFIG;
+        return c.dynamicIsland && c.enableMusic && t > 0.02f;
+    }
+
     /** Memulai pop-up: kapsul muncul lalu membuka. Menutup sendiri setelah islandShowSec detik. */
     private static void openNow() {
         hideAt = System.currentTimeMillis() + XFiveLiveClient.CONFIG.islandShowSec * 1000L;
