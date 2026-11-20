@@ -570,6 +570,37 @@ final class DownloadTests {
                 Thread.sleep(500);
                 ok("full player tried first for a 30 s preview song from search", asked.contains("A") && ready2.size() == before + 2);
                 dm4.setFullPlayer(null);
+                // ---- versi cover ----
+                HitCharts.Hit coverHit = new HitCharts.Hit("Teh Hijau", "Nobody Famous");
+                Song cv1 = HitCharts.bestCover(coverHit, List.of(new Song("a", "Teh Hijau karaoke", "K", 1, ""),
+                        new Song("b", "Teh Hijau (Piano Cover)", "Lia", 1, ""), new Song("c", "Teh Hijau", "Tulus", 1, "")));
+                ok("cover: yang berjudul cover didahulukan, karaoke dilewati", cv1 != null && cv1.id().equals("b"));
+                ok("cover: tanpa kata cover, judul yang sama dipakai", HitCharts.bestCover(coverHit,
+                        List.of(new Song("c", "Teh Hijau", "Tulus", 1, ""))).id().equals("c"));
+                ok("cover: judul beda -> null", HitCharts.bestCover(coverHit, List.of(new Song("z", "Lain Sekali", "X", 1, ""))) == null);
+                ok("cover: judul terlalu pendek -> null", HitCharts.bestCover(new HitCharts.Hit("Aa", "X"),
+                        List.of(new Song("z", "Aa", "X", 1, ""))) == null);
+                int beforeCover = ready2.size();
+                dm4.playEntries(List.of(OnlineManager.Entry.of(coverHit)), 0);
+                end = System.currentTimeMillis() + 8000;
+                while (ready2.size() < beforeCover + 1 && System.currentTimeMillis() < end) {
+                    Thread.sleep(20);
+                }
+                Thread.sleep(100);
+                ok("hit tanpa artis cocok memutar versi cover penuh, bukan cuplikan", ready2.size() == beforeCover + 1
+                        && dm4.nowSong() != null && !dm4.nowSong().isPreview() && dm4.message().contains("Cover version"));
+                dm4.coverFallback = false;
+                dm4.playEntries(List.of(OnlineManager.Entry.of(coverHit)), 0);
+                end = System.currentTimeMillis() + 8000;
+                while (ready2.size() < beforeCover + 2 && System.currentTimeMillis() < end) {
+                    Thread.sleep(20);
+                    if (dm4.nowSong() != null && dm4.nowSong().isPreview()) {
+                        break;
+                    }
+                }
+                Thread.sleep(300);
+                ok("cover dimatikan: tidak memakai cover", !dm4.message().contains("Cover version"));
+                dm4.coverFallback = true;
                 dm4.clearSearch();
                 ok("clear search", dm4.results().isEmpty() && dm4.searchState() == OnlineManager.SearchState.IDLE);
             } finally {

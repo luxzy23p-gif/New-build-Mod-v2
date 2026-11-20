@@ -115,6 +115,7 @@ public final class XFiveLiveClient implements ClientModInitializer {
         SPOTIFY.load();
         MUSIC.setRemote(SPOTIFY);
         // lagu hits yang hanya punya cuplikan 30 detik: putar versi penuhnya lewat Spotify jika sudah tersambung
+        ONLINE.coverFallback = CONFIG.coverFallback;
         SPOTIFY.setLinkOpener(XFiveLiveClient::openLink);
         ONLINE.setFullPlayer((title, artist) -> {
             var res = SPOTIFY.playFull(title, artist);

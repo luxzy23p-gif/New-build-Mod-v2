@@ -2270,7 +2270,12 @@ public final class ControlCenterScreen extends Screen {
                 case SOURCES -> {
                     out.add(heading("Online music (no download)"));
                     out.add(note("Audius: full songs, free, played straight away."));
-                    out.add(note("Apple previews: 30-second clips when a hit is not on Audius."));
+                    out.add(toggle("Use cover versions", () -> c.coverFallback, () -> {
+                        c.coverFallback = !c.coverFallback;
+                        XFiveLiveClient.ONLINE.coverFallback = c.coverFallback;
+                    }));
+                    out.add(note("Hits with no official full song play a full cover from Audius (not the original artist)."));
+                    out.add(note("Apple previews: 30-second clips only when no cover is found either."));
                     out.add(note("Charts: top songs of 12 countries, updated about every 30 minutes."));
                     out.add(heading("Your own music"));
                     out.add(note("Put mp3/m4a/ogg/wav files in the xfive-music folder (Now Playing > Add)."));

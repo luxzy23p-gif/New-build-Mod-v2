@@ -117,6 +117,10 @@ public final class OnlineManager implements OnlineQueue {
         }
     }
 
+    /** Putar versi cover (lagu penuh, Audius) jika versi aslinya hanya ada sebagai cuplikan. */
+    public volatile boolean coverFallback = true;
+    private volatile String playNote = "";
+
     private volatile FullPlayer fullPlayer;
     private volatile String fullHint = "";
 
@@ -258,7 +262,7 @@ public final class OnlineManager implements OnlineQueue {
             nowSong = job.song;
             message = job.song.isPreview()
                     ? "Preview 30 s: the full song is not on the free services." + (fullHint.isEmpty() ? "" : " " + fullHint)
-                    : "";
+                    : playNote;
         }
         version.incrementAndGet();
         try {
@@ -337,14 +341,31 @@ public final class OnlineManager implements OnlineQueue {
         final int seq = playSeq.incrementAndGet();
         nowEntry = e;
         nowSong = null;
+        playNote = "";
         if (e.song() != null) {
             message = "Loading \"" + e.song().title() + "\"...";
             version.incrementAndGet();
             FullPlayer full = fullPlayer;
-            if (e.song().isPreview() && full != null) {
-                // cuplikan 30 detik: coba dulu versi penuhnya di Spotify
+            if (e.song().isPreview() && (full != null || coverFallback)) {
+                // cuplikan 30 detik: coba dulu versi cover (penuh), lalu versi penuh di Spotify
                 Song song = e.song();
                 Thread t = new Thread(() -> {
+                    if (coverFallback) {
+                        Song cv = findCover(new HitCharts.Hit(song.title(), song.artist()));
+                        if (seq != playSeq.get()) {
+                            return;
+                        }
+                        if (cv != null) {
+                            playNote = coverNote(cv);
+                            fullHint = "";
+                            enqueueSong(cv);
+                            return;
+                        }
+                    }
+                    if (full == null) {
+                        enqueueSong(song);
+                        return;
+                    }
                     FullResult res = full.playFull(song.title(), song.artist());
                     if (seq != playSeq.get()) {
                         return;
@@ -372,6 +393,25 @@ public final class OnlineManager implements OnlineQueue {
         t.start();
     }
 
+    private static String coverNote(Song cv) {
+        return "Cover version (full song): \"" + cv.title() + "\" by " + cv.artist() + ".";
+    }
+
+    /** Mencari versi cover penuh di Audius. Null jika tidak ada atau pencarian gagal. */
+    private Song findCover(HitCharts.Hit hit) {
+        for (String q : new String[] {hit.name() + " cover", hit.name()}) {
+            try {
+                Song s = HitCharts.bestCover(hit, AudiusSearch.search(q, 15));
+                if (s != null) {
+                    return s;
+                }
+            } catch (IOException | RuntimeException ex) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     private void resolveAndPlay(Entry e, int seq, boolean byUser, int skips) {
         HitCharts.Hit hit = e.hit();
         Song found = null;
@@ -382,6 +422,13 @@ public final class OnlineManager implements OnlineQueue {
             err = ex.getMessage() == null ? "no internet?" : ex.getMessage();
         }
         fullHint = "";
+        if (found == null && coverFallback) {
+            Song cv = findCover(hit);
+            if (cv != null) {
+                found = cv;
+                playNote = coverNote(cv);
+            }
+        }
         FullPlayer full = fullPlayer;
         if (found == null && full != null) {
             // lagu hits komersial tidak ada versi penuh gratis: coba putar penuh lewat Spotify

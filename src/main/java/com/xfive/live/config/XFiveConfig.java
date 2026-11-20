@@ -45,6 +45,8 @@ public final class XFiveConfig {
     public boolean enableLyrics = true;
     /** Unduh lirik sinkron otomatis dari lrclib.net jika file .lrc tidak ada. */
     public boolean autoLyrics = true;
+    /** Hits yang tidak ada versi penuh resminya diputar dari versi cover (Audius) agar tidak cuma 30 detik. */
+    public boolean coverFallback = true;
     public int lyricsFontSize = 10;
     public int highlightColor = 0x40DFFF;
     public int lyricsPosition = 2; // 0 = atas, 1 = tengah, 2 = bawah
@@ -142,6 +144,7 @@ public final class XFiveConfig {
 
         enableLyrics = bool(p, "lyrics.enable", enableLyrics);
         autoLyrics = bool(p, "lyrics.auto", autoLyrics);
+        coverFallback = bool(p, "online.cover", coverFallback);
         lyricsFontSize = integer(p, "lyrics.fontSize", lyricsFontSize, 6, 20);
         highlightColor = integer(p, "lyrics.highlightColor", highlightColor, 0, 0xFFFFFF);
         lyricsPosition = integer(p, "lyrics.position", lyricsPosition, 0, 2);
@@ -204,6 +207,7 @@ public final class XFiveConfig {
 
         put(p, "lyrics.enable", enableLyrics);
         put(p, "lyrics.auto", autoLyrics);
+        put(p, "online.cover", coverFallback);
         put(p, "lyrics.fontSize", lyricsFontSize);
         put(p, "lyrics.highlightColor", highlightColor);
         put(p, "lyrics.position", lyricsPosition);

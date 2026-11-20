@@ -103,4 +103,33 @@ public final class HitCharts {
         }
         return null;
     }
+
+    /**
+     * Versi cover/unggahan lain dari lagu tangga: judulnya memuat judul lagu (artis boleh beda), bukan karaoke atau
+     * instrumental. Yang berjudul "cover" didahulukan. Null jika tidak ada.
+     */
+    public static Song bestCover(Hit hit, List<Song> songs) {
+        String name = norm(hit.name());
+        if (name.length() < 3) {
+            return null;
+        }
+        Song first = null;
+        for (Song s : songs) {
+            if (!(" " + norm(s.title()) + " ").contains(" " + name + " ")) {
+                continue;
+            }
+            String raw = s.title().toLowerCase(Locale.ROOT);
+            if (raw.contains("karaoke") || raw.contains("instrumental") || raw.contains("type beat")
+                    || raw.contains("backing track")) {
+                continue;
+            }
+            if (raw.contains("cover")) {
+                return s;
+            }
+            if (first == null) {
+                first = s;
+            }
+        }
+        return first;
+    }
 }

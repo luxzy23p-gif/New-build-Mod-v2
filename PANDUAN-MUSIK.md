@@ -151,6 +151,10 @@ Lirik tampil sebagai **pil kecil di tengah atas layar**, sejajar notch/kamera da
 
 ## Kenapa lagu hits cuma 30 detik?
 
+**Sekarang lagu hits otomatis memakai versi cover penuh** (dari Audius, gratis dan resmi) kalau versi aslinya tidak ada. Pesan di Now Playing menyebut "Cover version" beserta nama pengunggahnya. Matikan di **Settings > Sources > Use cover versions**. Lirik untuk cover hanya muncul kalau lrclib punya versi dengan durasi yang cocok.
+
+Penjelasan lama, kalau tidak ada cover juga:
+
 Lagu hits dari Charts umumnya tidak ada versi penuh gratisnya, jadi mod memutar **cuplikan 30 detik** dari Apple. Untuk memutar **lagu penuh**, sambungkan Spotify (Settings > Sources, butuh Spotify Premium dan aplikasi Spotify terbuka). Setelah tersambung, mod mencari lagu itu di Spotify dan memutarnya penuh di aplikasi Spotify; tombol, waktu, dan lirik tetap ikut. Kalau akunmu **Free** (Spotify menolak perintah dari aplikasi lain), lagu dibuka otomatis di aplikasi Spotify lewat tautan: tekan **play** di sana, lalu mod tetap mengikuti lagunya (tombol, waktu, lirik). Membaca status lagu boleh untuk akun Free; hanya perintah putar/jeda yang butuh Premium. Kalau tetap gagal, alasannya tampil di pesan Now Playing.
 
 ## Lirik melayang di dalam game
