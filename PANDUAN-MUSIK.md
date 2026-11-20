@@ -143,6 +143,12 @@ Halaman **Specs** kini membaca spesifikasi HP/perangkat yang sedang dipakai (nam
 
 Catatan jujur: semua ini sudah dites bagian logikanya di komputer dan terbukti terkompilasi di GitHub, tapi tampilannya belum dicoba langsung di HP.
 
+## Alert donasi di layar
+
+Kartu emas muncul di tengah atas layar (di bawah Dynamic Island/pil lirik) berisi nama donatur, jumlah (mis. Rp25.000), dan pesan, lalu hilang sendiri. Beberapa donasi antre satu per satu.
+- Atur di **Settings > HUD > Donation alert**: nyalakan/matikan, lama tampil, dan tombol **Test donation alert** untuk melihat tampilannya.
+- **Belum tersambung ke SociaBuzz.** SociaBuzz tidak punya jalur resmi untuk mengirim donasi ke aplikasi lain (hanya link overlay untuk OBS dan webhook toko), jadi sekarang alert hanya muncul lewat tombol Test.
+
 ## Lirik di atas layar (pil notch)
 
 Lirik tampil sebagai **pil kecil di tengah atas layar**, sejajar notch/kamera dan Dynamic Island: waktu lagu di kiri, kata yang sedang dinyanyikan disorot kapsul putih, baris berikutnya pudar di belakangnya. Waktunya mengikuti lagu otomatis. Jika Dynamic Island sedang terbuka, pil turun tepat di bawahnya.

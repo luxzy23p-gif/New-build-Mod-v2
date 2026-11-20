@@ -48,6 +48,8 @@ public final class XFiveLiveClient implements ClientModInitializer {
     /** Kontrol aplikasi Spotify di perangkat ini (login lewat Web API resmi). */
     public static final com.xfive.live.spotify.SpotifyClient SPOTIFY = new com.xfive.live.spotify.SpotifyClient(
             FabricLoader.getInstance().getConfigDir().resolve("xfive-spotify.properties"));
+    /** Antrean alert donasi yang tampil di layar. Sumber mana pun cukup memanggil DONATIONS.push(...). */
+    public static final com.xfive.live.donate.DonationAlerts DONATIONS = new com.xfive.live.donate.DonationAlerts();
     /** Lagu online tanpa unduhan: pencarian, tangga lagu, antrean. Lagu dimuat ke cache sementara lalu diputar. */
     public static final OnlineManager ONLINE = new OnlineManager(
             XFiveLiveClient::cacheDir,
@@ -154,6 +156,7 @@ public final class XFiveLiveClient implements ClientModInitializer {
                         MusicHud.render(graphics);
                     }
                     LyricsHud.render(graphics);
+                    com.xfive.live.hud.DonationHud.render(graphics);
                 });
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> onTick());

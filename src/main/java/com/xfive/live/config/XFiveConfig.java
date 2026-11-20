@@ -60,6 +60,10 @@ public final class XFiveConfig {
     public boolean lyricsBubble = true;
     /** Lirik sebagai pil di atas layar (sejajar notch/Dynamic Island), bukan melayang di tengah. */
     public boolean lyricsPill = true;
+    /** Alert donasi di layar (sumber: tombol Test, nanti layanan donasi). */
+    public boolean donationAlerts = true;
+    /** Lama satu alert donasi tampil (detik). */
+    public int donationSeconds = 6;
     /** Titik hitung mundur saat jeda instrumental panjang. */
     public boolean lyricsCountdown = true;
     /** Halaman Specs memakai spesifikasi perangkat yang terdeteksi (jika gagal, memakai preset). */
@@ -154,6 +158,8 @@ public final class XFiveConfig {
         lyricsPreview = bool(p, "lyrics.preview", lyricsPreview);
         lyricsBubble = bool(p, "lyrics.bubble", lyricsBubble);
         lyricsPill = bool(p, "lyrics.pill", lyricsPill);
+        donationAlerts = bool(p, "donation.alerts", donationAlerts);
+        donationSeconds = integer(p, "donation.seconds", donationSeconds, 3, 15);
         lyricsCountdown = bool(p, "lyrics.countdown", lyricsCountdown);
         specAuto = bool(p, "specs.auto", specAuto);
         lyricsOffsetMs = integer(p, "lyrics.offsetMs", lyricsOffsetMs, -3000, 3000);
@@ -217,6 +223,8 @@ public final class XFiveConfig {
         put(p, "lyrics.preview", lyricsPreview);
         put(p, "lyrics.bubble", lyricsBubble);
         put(p, "lyrics.pill", lyricsPill);
+        put(p, "donation.alerts", donationAlerts);
+        put(p, "donation.seconds", donationSeconds);
         put(p, "lyrics.countdown", lyricsCountdown);
         put(p, "specs.auto", specAuto);
         put(p, "lyrics.offsetMs", lyricsOffsetMs);

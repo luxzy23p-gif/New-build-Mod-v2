@@ -2208,6 +2208,13 @@ public final class ControlCenterScreen extends Screen {
                     out.add(toggle("Music HUD", () -> c.enableMusic, () -> c.enableMusic = !c.enableMusic));
                     out.add(toggle("Dynamic Island", () -> c.dynamicIsland, () -> c.dynamicIsland = !c.dynamicIsland));
                     out.add(toggle("Lyrics HUD", () -> c.enableLyrics, () -> c.enableLyrics = !c.enableLyrics));
+                    out.add(heading("Donation alert"));
+                    out.add(toggle("Donation alerts", () -> c.donationAlerts, () -> c.donationAlerts = !c.donationAlerts));
+                    out.add(cycle("Alert time", () -> c.donationSeconds + " s",
+                            () -> c.donationSeconds = c.donationSeconds >= 10 ? 4 : c.donationSeconds + 2));
+                    out.add(action("Test donation alert", () -> XFiveLiveClient.DONATIONS.push("Budi Santoso", 25_000L,
+                            "Semangat terus streamnya!")));
+                    out.add(note("Alerts from SociaBuzz are not connected yet. This shows how they will look."));
                     out.add(heading("Lyrics"));
                     out.add(cycle("Lyric style", () -> c.lyricsPill ? "Notch pill" : "Floating",
                             () -> c.lyricsPill = !c.lyricsPill));

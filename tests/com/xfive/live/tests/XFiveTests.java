@@ -46,12 +46,51 @@ public final class XFiveTests {
         new Mp4Tests(XFiveTests::check).run();
         testTextFit();
         testPillMath();
+        testDonations();
         Files.createDirectories(work.resolve("spotify"));
         new SpotifyTests(XFiveTests::check).run(work.resolve("spotify"));
         System.out.println("passed=" + passed + " failed=" + failed);
         if (failed > 0) {
             System.exit(1);
         }
+    }
+
+    static void testDonations() {
+        check("rupiah 25000", com.xfive.live.donate.DonationAlerts.formatRupiah(25_000L).equals("Rp25.000"));
+        check("rupiah 0, ratusan, jutaan", com.xfive.live.donate.DonationAlerts.formatRupiah(0).equals("Rp0")
+                && com.xfive.live.donate.DonationAlerts.formatRupiah(999).equals("Rp999")
+                && com.xfive.live.donate.DonationAlerts.formatRupiah(1_250_000L).equals("Rp1.250.000")
+                && com.xfive.live.donate.DonationAlerts.formatRupiah(-5).equals("Rp0"));
+        var q = new com.xfive.live.donate.DonationAlerts();
+        check("alert: kosong -> null", q.tick(1000, 6000) == null);
+        check("alert: push diterima", q.push("Budi", 10_000L, "Halo"));
+        q.push("Siti\u0000\n  Rahma", 5_000L, "  banyak   spasi  ");
+        var a1 = q.tick(1000, 6000);
+        check("alert: tampil yang pertama", a1 != null && a1.name().equals("Budi") && q.startedMs() == 1000 && q.pending() == 1);
+        check("alert: masih tampil sebelum waktunya habis", q.tick(6900, 6000) == a1);
+        check("alert: habis lalu jeda (belum ada yang baru)", q.tick(7000, 6000) == null);
+        check("alert: setelah jeda, yang kedua tampil dengan teks bersih", q.tick(7000 + com.xfive.live.donate.DonationAlerts.GAP_MS, 6000) != null
+                && q.tick(7500, 6000).name().equals("Siti Rahma") && q.tick(7500, 6000).message().equals("banyak spasi"));
+        var full = new com.xfive.live.donate.DonationAlerts();
+        boolean allOk = true;
+        for (int i = 0; i < com.xfive.live.donate.DonationAlerts.MAX_QUEUE; i++) {
+            allOk &= full.push("n" + i, 1, "");
+        }
+        check("alert: antrean penuh menolak yang ke-11", allOk && !full.push("x", 1, ""));
+        var longOne = new com.xfive.live.donate.DonationAlerts();
+        longOne.push("N".repeat(60), 1, "m".repeat(500));
+        var la = longOne.tick(0, 1000);
+        check("alert: nama dan pesan dipotong", la.name().length() <= 24 && la.name().endsWith("...") && la.message().length() <= 120);
+        var blank = new com.xfive.live.donate.DonationAlerts();
+        blank.push(null, -50, null);
+        var ba = blank.tick(0, 1000);
+        check("alert: nama kosong -> Someone, jumlah negatif -> 0", ba.name().equals("Someone") && ba.amount() == 0 && ba.message().isEmpty());
+        check("alert: animasi 0 di awal, 1 di tengah, 0 di akhir", com.xfive.live.donate.DonationAlerts.visibility(0, 6000, 350) == 0f
+                && com.xfive.live.donate.DonationAlerts.visibility(3000, 6000, 350) == 1f
+                && com.xfive.live.donate.DonationAlerts.visibility(6000, 6000, 350) == 0f
+                && com.xfive.live.donate.DonationAlerts.visibility(7000, 6000, 350) == 0f);
+        q.clear();
+        check("alert: clear mengosongkan", q.pending() == 0 && q.tick(99_999, 6000) == null);
     }
 
     static void testPillMath() {
