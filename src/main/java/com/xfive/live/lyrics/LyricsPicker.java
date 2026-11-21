@@ -149,6 +149,37 @@ public final class LyricsPicker {
     }
 
     /**
+     * Untuk sumber yang hanya memberi daftar lagu (tanpa lirik): indeks lagu yang judul dan artisnya cocok dan
+     * durasinya wajar, yang paling dekat durasinya lebih dulu. Maksimal max indeks. Durasi tidak diketahui
+     * (di salah satu sisi) berarti hanya judul dan artis yang diperiksa, dan liriknya nanti diperiksa panjangnya.
+     */
+    public static List<Integer> shortlist(List<Candidate> metas, String title, String artist, long durationMs, int max) {
+        List<Integer> idx = new ArrayList<>();
+        if (metas == null) {
+            return idx;
+        }
+        double want = durationMs / 1000.0;
+        double[] diffs = new double[metas.size()];
+        for (int i = 0; i < metas.size(); i++) {
+            Candidate c = metas.get(i);
+            if (c == null || c.instrumental()) {
+                continue;
+            }
+            boolean known = durationMs > 0L && c.durationSec() > 0;
+            double diff = known ? Math.abs(c.durationSec() - want) : MAX_DIFF_SEC;
+            if (known && diff > MAX_DIFF_SEC) {
+                continue;
+            }
+            if (titleArtistOk(c, title, artist, diff)) {
+                diffs[i] = diff;
+                idx.add(i);
+            }
+        }
+        idx.sort((a, b) -> Double.compare(diffs[a], diffs[b]));
+        return idx.size() > max ? new ArrayList<>(idx.subList(0, max)) : idx;
+    }
+
+    /**
      * Judul dan artis cocok. Keringanan yang aman: (1) nama file tertukar "Judul - Artis", (2) artis beda ejaan atau
      * aksara tetapi judulnya sama persis (minimal 4 huruf) dan durasinya selisih paling banyak 2 detik.
      */

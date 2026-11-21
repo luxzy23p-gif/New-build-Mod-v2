@@ -163,6 +163,16 @@ Penjelasan lama, kalau tidak ada cover juga:
 
 Lagu hits dari Charts umumnya tidak ada versi penuh gratisnya, jadi mod memutar **cuplikan 30 detik** dari Apple. Untuk memutar **lagu penuh**, sambungkan Spotify (Settings > Sources, butuh Spotify Premium dan aplikasi Spotify terbuka). Setelah tersambung, mod mencari lagu itu di Spotify dan memutarnya penuh di aplikasi Spotify; tombol, waktu, dan lirik tetap ikut. Kalau akunmu **Free** (Spotify menolak perintah dari aplikasi lain), lagu dibuka otomatis di aplikasi Spotify lewat tautan: tekan **play** di sana, lalu mod tetap mengikuti lagunya (tombol, waktu, lirik). Membaca status lagu boleh untuk akun Free; hanya perintah putar/jeda yang butuh Premium. Kalau tetap gagal, alasannya tampil di pesan Now Playing.
 
+## Dari mana lirik dicari (otomatis)
+
+Setiap lagu (dari HP maupun online) dicari liriknya otomatis, berurutan, sampai ketemu yang cocok:
+
+1. **LRCLIB** (lrclib.net): sumber utama.
+2. **Better Lyrics**: hanya lagu yang sudah ada di cache mereka.
+3. **NetEase** dan **Kugou**: layanan musik besar dengan banyak lirik bersinkron. Bisa dimatikan lewat Settings, tab HUD, **Also search NetEase + Kugou**.
+
+Lirik dipakai hanya kalau judul, artis, dan panjangnya cocok dengan lagumu, jadi lebih baik kosong daripada meleset. Alamat NetEase dan Kugou bukan API resmi yang dijamin, jadi kadang bisa gagal atau berubah; kalau gagal, mod diam saja dan lanjut ke sumber berikutnya. Yang tidak dipakai: Genius (hanya teks tanpa waktu), Musixmatch (butuh key berbayar untuk lirik bersinkron), Lyricsify (diblokir Cloudflare).
+
 ## Lirik tidak keluar? Pilih sendiri dari LRCLIB
 
 LRCLIB (lrclib.net) sudah jadi sumber lirik pertama yang dicari otomatis. Kalau lirik tetap tidak keluar:

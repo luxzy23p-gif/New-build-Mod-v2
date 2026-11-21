@@ -49,6 +49,7 @@ public final class XFiveTests {
         testDonations();
         testBetterLyrics();
         testLyricChoices();
+        testMoreSources();
         Files.createDirectories(work.resolve("spotify"));
         new SpotifyTests(XFiveTests::check).run(work.resolve("spotify"));
         System.out.println("passed=" + passed + " failed=" + failed);
@@ -66,6 +67,125 @@ public final class XFiveTests {
                     + "<span ttm:role=\"x-translation\">terjemahan</span></p>", t / 60, t % 60, t / 60, (t % 60), t / 60, t % 60, i));
         }
         return sb.append("</div></body></tt>").toString();
+    }
+
+    private static String longLrc(int lines, int stepSec) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < lines; i++) {
+            int t = i * stepSec;
+            b.append(String.format("[%02d:%02d.00]baris %d%n", t / 60, t % 60, i));
+        }
+        return b.toString();
+    }
+
+    private static void reply(com.sun.net.httpserver.HttpExchange ex, int code, String body) throws java.io.IOException {
+        byte[] b = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        ex.getResponseHeaders().add("Content-Type", "application/json");
+        ex.sendResponseHeaders(code, b.length == 0 ? -1 : b.length);
+        if (b.length > 0) {
+            ex.getResponseBody().write(b);
+        }
+        ex.close();
+    }
+
+    static void testMoreSources() throws Exception {
+        String lrc = longLrc(40, 5);
+        String lrcJson = lrc.replace("\r", "").replace("\n", "\\n");
+        com.sun.net.httpserver.HttpServer srv = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        java.util.List<String> reqs = new java.util.concurrent.CopyOnWriteArrayList<>();
+        boolean[] neDown = {false};
+        srv.createContext("/api/", ex -> { reqs.add("LRCLIB"); reply(ex, 200, "[]"); });
+        srv.createContext("/ne/search/get/", ex -> {
+            String form = new String(ex.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            reqs.add("NE-S " + ex.getRequestMethod() + " " + form);
+            if (neDown[0]) { reply(ex, 500, "x"); return; }
+            if (form.contains("Nada")) { reply(ex, 200, "{\"code\":200,\"result\":{\"songs\":[]}}"); return; }
+            reply(ex, 200, "{\"code\":200,\"result\":{\"songs\":["
+                    + "{\"id\":11,\"name\":\"Hello\",\"artists\":[{\"name\":\"Adele\"}],\"duration\":250000},"
+                    + "{\"id\":22,\"name\":\"Hello\",\"artists\":[{\"name\":\"Adele\"}],\"duration\":201000}]}}");
+        });
+        srv.createContext("/ne/song/lyric", ex -> {
+            reqs.add("NE-L " + ex.getRequestURI().getRawQuery());
+            reply(ex, 200, "{\"code\":200,\"lrc\":{\"lyric\":\"" + lrcJson + "\"}}");
+        });
+        srv.createContext("/kg/song", ex -> {
+            reqs.add("KG-S");
+            if (ex.getRequestURI().getRawQuery().contains("Nada")) { reply(ex, 200, "{\"status\":1,\"data\":{\"info\":[]}}"); return; }
+            reply(ex, 200, "{\"status\":1,\"data\":{\"info\":[{\"hash\":\"AB12\",\"songname\":\"Hello\",\"singername\":\"Adele\",\"duration\":200}]}}");
+        });
+        srv.createContext("/kgl/search", ex -> {
+            reqs.add("KG-L " + ex.getRequestURI().getRawQuery());
+            reply(ex, 200, "{\"status\":200,\"candidates\":[{\"id\":\"77\",\"accesskey\":\"KEY\"}]}");
+        });
+        srv.createContext("/kgl/download", ex -> {
+            reqs.add("KG-D " + ex.getRequestURI().getRawQuery());
+            String b64 = java.util.Base64.getEncoder().encodeToString(("\uFEFF" + lrc).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            reply(ex, 200, "{\"status\":200,\"fmt\":\"lrc\",\"content\":\"" + b64 + "\"}");
+        });
+        srv.start();
+        String host = "http://127.0.0.1:" + srv.getAddress().getPort();
+        String oldL = com.xfive.live.lyrics.LrclibFetcher.base;
+        String oldN = com.xfive.live.lyrics.NeteaseFetcher.base;
+        String oldS = com.xfive.live.lyrics.KugouFetcher.songBase;
+        String oldK = com.xfive.live.lyrics.KugouFetcher.lyricBase;
+        com.xfive.live.lyrics.LrclibFetcher.base = host + "/api/";
+        com.xfive.live.lyrics.NeteaseFetcher.base = host + "/ne/";
+        com.xfive.live.lyrics.KugouFetcher.songBase = host + "/kg/song";
+        com.xfive.live.lyrics.KugouFetcher.lyricBase = host + "/kgl/";
+        try {
+            var ne = com.xfive.live.lyrics.NeteaseFetcher.fetch("Adele", "Hello", 200_000L);
+            check("netease: POST pencarian, memilih lagu berdurasi cocok (id 22)", ne.text() != null
+                    && reqs.stream().anyMatch(r -> r.startsWith("NE-S POST s=Adele+Hello&type=1"))
+                    && reqs.stream().anyMatch(r -> r.startsWith("NE-L id=22&")) && reqs.stream().noneMatch(r -> r.startsWith("NE-L id=11")));
+            check("netease: hasil bisa dibaca parser", com.xfive.live.lyrics.LrcParser.parse(ne.text()).size() == 40);
+            check("netease: lagu tidak ada -> kosong tanpa error", com.xfive.live.lyrics.NeteaseFetcher.fetch("Nada", "Nada", 200_000L).text() == null);
+            check("netease: durasi lagu tidak diketahui -> tidak mencari", com.xfive.live.lyrics.NeteaseFetcher.fetch("Adele", "Hello", 0L).text() == null);
+            check("netease: lirik tidak cocok panjang lagu ditolak", com.xfive.live.lyrics.NeteaseFetcher.fetch("Adele", "Hello", 900_000L).text() == null);
+
+            reqs.clear();
+            var kg = com.xfive.live.lyrics.KugouFetcher.fetch("Adele", "Hello", 200_000L);
+            check("kugou: tiga langkah (lagu, cari lirik, unduh) dan BOM dibuang", kg.text() != null && kg.text().startsWith("[00:00.00]baris 0")
+                    && reqs.stream().anyMatch(r -> r.startsWith("KG-L") && r.contains("hash=AB12") && r.contains("duration=200000"))
+                    && reqs.stream().anyMatch(r -> r.startsWith("KG-D") && r.contains("id=77") && r.contains("accesskey=KEY") && r.contains("fmt=lrc")));
+            check("kugou: lagu tidak ada -> kosong", com.xfive.live.lyrics.KugouFetcher.fetch("Nada", "Nada", 200_000L).text() == null);
+
+            reqs.clear();
+            var all = com.xfive.live.lyrics.LyricsFinder.find("Adele", "Hello", 200_000L, false, true);
+            check("finder: LRCLIB kosong -> NetEase dipakai, Kugou tidak perlu", all.text() != null
+                    && reqs.stream().anyMatch(r -> r.startsWith("NE-L")) && reqs.stream().noneMatch(r -> r.startsWith("KG-")));
+            reqs.clear();
+            var off = com.xfive.live.lyrics.LyricsFinder.find("Adele", "Hello", 200_000L, false, false);
+            check("finder: sumber tambahan dimatikan -> tidak dipanggil", off.text() == null
+                    && reqs.stream().noneMatch(r -> r.startsWith("NE-") || r.startsWith("KG-")));
+            reqs.clear();
+            neDown[0] = true;
+            var kgOnly = com.xfive.live.lyrics.LyricsFinder.find("Adele", "Hello", 200_000L, false, true);
+            check("finder: NetEase error -> Kugou dipakai", kgOnly.text() != null && reqs.stream().anyMatch(r -> r.startsWith("KG-D")));
+            neDown[0] = false;
+
+            // server mati: tidak error, hanya kosong
+            srv.stop(0);
+            check("netease/kugou: server mati -> kosong tanpa error",
+                    com.xfive.live.lyrics.NeteaseFetcher.fetch("Adele", "Hello", 200_000L).text() == null
+                    && com.xfive.live.lyrics.KugouFetcher.fetch("Adele", "Hello", 200_000L).text() == null);
+        } finally {
+            com.xfive.live.lyrics.LrclibFetcher.base = oldL;
+            com.xfive.live.lyrics.NeteaseFetcher.base = oldN;
+            com.xfive.live.lyrics.KugouFetcher.songBase = oldS;
+            com.xfive.live.lyrics.KugouFetcher.lyricBase = oldK;
+            srv.stop(0);
+        }
+        // pemilihan lagu dari daftar (murni)
+        java.util.List<com.xfive.live.lyrics.LyricsPicker.Candidate> metas = java.util.List.of(
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Hello", "Adele", 250, false, null),
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Hello", "Adele", 202, false, null),
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Other", "Adele", 200, false, null),
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Hello", "Adele", 0, false, null));
+        java.util.List<Integer> sl = com.xfive.live.lyrics.LyricsPicker.shortlist(metas, "Hello", "Adele", 200_000L, 3);
+        check("shortlist: durasi terlalu beda dan judul lain dibuang, durasi tak diketahui masih boleh, urut terdekat",
+                sl.equals(java.util.List.of(1, 3)));
+        check("shortlist: maksimal dan null aman", com.xfive.live.lyrics.LyricsPicker.shortlist(metas, "Hello", "Adele", 200_000L, 1).size() == 1
+                && com.xfive.live.lyrics.LyricsPicker.shortlist(null, "a", "b", 1L, 3).isEmpty());
     }
 
     static void testLyricChoices() throws Exception {

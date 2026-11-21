@@ -2224,6 +2224,8 @@ public final class ControlCenterScreen extends Screen {
                     out.add(note("Alerts from SociaBuzz are not connected yet. This shows how they will look."));
                     out.add(heading("Lyrics"));
                     out.add(toggle("Also search Better Lyrics", () -> c.betterLyrics, () -> c.betterLyrics = !c.betterLyrics));
+                    out.add(toggle("Also search NetEase + Kugou", () -> c.moreLyricSources,
+                            () -> c.moreLyricSources = !c.moreLyricSources));
                     out.add(cycle("Lyric style", () -> c.lyricsPill ? "Notch pill" : "Floating",
                             () -> c.lyricsPill = !c.lyricsPill));
                     out.add(cycle("Lyric animation", () -> LyricStyle.NAMES[LyricStyle.indexOf(c.lyricsAnim)],

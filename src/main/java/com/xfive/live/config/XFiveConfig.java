@@ -47,6 +47,8 @@ public final class XFiveConfig {
     public boolean autoLyrics = true;
     /** Cari lirik juga di Better Lyrics jika LRCLIB tidak punya. */
     public boolean betterLyrics = true;
+    /** Cari juga di NetEase dan Kugou kalau LRCLIB tidak punya lagunya. */
+    public boolean moreLyricSources = true;
     /** Hits yang tidak ada versi penuh resminya diputar dari versi cover (Audius) agar tidak cuma 30 detik. */
     public boolean coverFallback = true;
     public int lyricsFontSize = 10;
@@ -151,6 +153,7 @@ public final class XFiveConfig {
         enableLyrics = bool(p, "lyrics.enable", enableLyrics);
         autoLyrics = bool(p, "lyrics.auto", autoLyrics);
         betterLyrics = bool(p, "lyrics.betterlyrics", betterLyrics);
+        moreLyricSources = bool(p, "lyrics.more", moreLyricSources);
         coverFallback = bool(p, "online.cover", coverFallback);
         lyricsFontSize = integer(p, "lyrics.fontSize", lyricsFontSize, 6, 20);
         highlightColor = integer(p, "lyrics.highlightColor", highlightColor, 0, 0xFFFFFF);
@@ -217,6 +220,7 @@ public final class XFiveConfig {
         put(p, "lyrics.enable", enableLyrics);
         put(p, "lyrics.auto", autoLyrics);
         put(p, "lyrics.betterlyrics", betterLyrics);
+        put(p, "lyrics.more", moreLyricSources);
         put(p, "online.cover", coverFallback);
         put(p, "lyrics.fontSize", lyricsFontSize);
         put(p, "lyrics.highlightColor", highlightColor);

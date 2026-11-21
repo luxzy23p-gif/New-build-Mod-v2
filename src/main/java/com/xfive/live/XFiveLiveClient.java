@@ -460,7 +460,8 @@ public final class XFiveLiveClient implements ClientModInitializer {
                 return;
             }
             com.xfive.live.lyrics.LrclibFetcher.Result found =
-                    com.xfive.live.lyrics.LyricsFinder.find(track.artist(), track.title(), dur, CONFIG.betterLyrics);
+                    com.xfive.live.lyrics.LyricsFinder.find(track.artist(), track.title(), dur, CONFIG.betterLyrics,
+                            CONFIG.moreLyricSources);
             if (generation != lyricsGeneration) {
                 return;
             }
