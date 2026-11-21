@@ -14,7 +14,8 @@ import java.time.Duration;
  * Dipanggil dari thread latar, tidak pernah dari thread game. Hanya kode murni Java supaya bisa diuji.
  */
 public final class LrclibFetcher {
-    private static final String BASE = "https://lrclib.net/api/";
+    /** Alamat API (bisa diganti untuk pengujian). */
+    public static volatile String base = "https://lrclib.net/api/";
     private static final String AGENT = "XFiveLive/1.1 (https://github.com/luxzy23p-gif/mod-live-streaming)";
 
     private static final HttpClient CLIENT = HttpClient.newBuilder()
@@ -48,7 +49,7 @@ public final class LrclibFetcher {
         try {
             long sec = Math.round(durationMs / 1000.0);
             if (hasArtist) {
-                String body = get(BASE + "get?track_name=" + enc(title) + "&artist_name=" + enc(artist)
+                String body = get(base + "get?track_name=" + enc(title) + "&artist_name=" + enc(artist)
                         + "&duration=" + Math.max(1, Math.min(3600, sec)));
                 reached |= body != null;
                 java.util.List<LyricsPicker.Candidate> got = LyricsPicker.parse(body);
@@ -61,9 +62,9 @@ public final class LrclibFetcher {
             }
             String clean = cleanTitle(title);
             String[] urls = {
-                    BASE + "search?track_name=" + enc(clean) + (hasArtist ? "&artist_name=" + enc(artist) : ""),
-                    BASE + "search?q=" + enc((hasArtist ? artist + " " : "") + clean),
-                    BASE + "search?q=" + enc(clean)};
+                    base + "search?track_name=" + enc(clean) + (hasArtist ? "&artist_name=" + enc(artist) : ""),
+                    base + "search?q=" + enc((hasArtist ? artist + " " : "") + clean),
+                    base + "search?q=" + enc(clean)};
             for (String url : urls) {
                 String body = get(url);
                 reached |= body != null;

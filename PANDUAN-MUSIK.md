@@ -171,6 +171,7 @@ Saat lagu diputar, lirik bersinkron muncul **melayang di layar** (kapsul kaca ge
 - Lagu cuplikan 30 detik (Apple) **tidak** diberi lirik: klip pendek itu dipotong dari tengah lagu, jadi waktunya tidak bisa dicocokkan.
 - Keterangan di halaman Now Playing sekarang menyebut **alasannya** kalau lirik tidak muncul: belum ada di lrclib, hanya ada lirik tanpa waktu, versinya beda durasi (mis. "15 s longer"), atau nama file perlu dibenarkan.
 - Nama file seperti `01. Judul`, `Judul - Remastered 2015`, atau `Judul - Artis` (tertukar) sekarang tetap dikenali.
+- Sumber lirik: **LRCLIB** dulu, kalau tidak ada dicoba **Better Lyrics** (betterlyrics.org). Berlaku sama untuk lagu offline (file sendiri) dan online. Matikan Better Lyrics di **Settings > HUD > Also search Better Lyrics**. Tanpa kunci API, Better Lyrics hanya menjawab lagu yang sudah ada di cache mereka, jadi tidak semua lagu terbantu. Lirik tetap hanya dipakai kalau panjangnya cocok dengan lagu.
 - Tidak semua lagu punya lirik bersinkron di lrclib.net. Kalau tidak ada, kamu bisa menaruh file `.lrc` sendiri di `xfive-lirik`.
 
 ## Sambungkan Spotify (mengontrol aplikasi Spotify di HP)

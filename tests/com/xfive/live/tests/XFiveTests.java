@@ -47,11 +47,98 @@ public final class XFiveTests {
         testTextFit();
         testPillMath();
         testDonations();
+        testBetterLyrics();
         Files.createDirectories(work.resolve("spotify"));
         new SpotifyTests(XFiveTests::check).run(work.resolve("spotify"));
         System.out.println("passed=" + passed + " failed=" + failed);
         if (failed > 0) {
             System.exit(1);
+        }
+    }
+
+    private static String ttmlSample(int lines, int stepSec) {
+        StringBuilder sb = new StringBuilder("<?xml version=\"1.0\"?><tt xmlns=\"http://www.w3.org/ns/ttml\" xmlns:ttm=\"http://www.w3.org/ns/ttml#metadata\">"
+                + "<head/><body><div>");
+        for (int i = 0; i < lines; i++) {
+            int t = i * stepSec;
+            sb.append(String.format("<p begin=\"%02d:%02d.500\" end=\"%02d:%02d.900\"><span begin=\"%02d:%02d.500\">Hel</span><span>lo</span> <span>world %d</span>"
+                    + "<span ttm:role=\"x-translation\">terjemahan</span></p>", t / 60, t % 60, t / 60, (t % 60), t / 60, t % 60, i));
+        }
+        return sb.append("</div></body></tt>").toString();
+    }
+
+    static void testBetterLyrics() throws Exception {
+        String lrc = com.xfive.live.lyrics.TtmlParser.toLrc(ttmlSample(3, 5));
+        String[] ls = lrc.strip().split("\\R");
+        check("ttml: 3 baris LRC", ls.length == 3);
+        check("ttml: waktu dan teks (suku kata digabung, terjemahan dibuang)", ls[0].equals("[00:00.50]Hello world 0") && ls[1].equals("[00:05.50]Hello world 1"));
+        check("ttml: hasil bisa dibaca parser LRC", com.xfive.live.lyrics.LrcParser.parse(lrc).size() == 3);
+        check("ttml: waktu tanpa begin di p memakai span", com.xfive.live.lyrics.TtmlParser.toLrc(
+                "<tt><body><div><p><span begin=\"7.25s\">Hai</span></p></div></body></tt>").equals("[00:07.25]Hai" + System.lineSeparator()));
+        check("ttml: format waktu", com.xfive.live.lyrics.TtmlParserAccess.t("1:02:03.5") == 3_723_500L
+                && com.xfive.live.lyrics.TtmlParserAccess.t("02:03.250") == 123_250L
+                && com.xfive.live.lyrics.TtmlParserAccess.t("12.5") == 12_500L
+                && com.xfive.live.lyrics.TtmlParserAccess.t("12.5s") == 12_500L
+                && com.xfive.live.lyrics.TtmlParserAccess.t("1500ms") == 1_500L
+                && com.xfive.live.lyrics.TtmlParserAccess.t("abc") == -1L && com.xfive.live.lyrics.TtmlParserAccess.t("") == -1L);
+        check("ttml: urut waktu walau di dokumen terbalik", com.xfive.live.lyrics.TtmlParser.toLrc(
+                "<tt><body><p begin=\"10s\">B</p><p begin=\"2s\">A</p></body></tt>").startsWith("[00:02.00]A"));
+        check("ttml: rusak / kosong / DOCTYPE -> kosong", com.xfive.live.lyrics.TtmlParser.toLrc("<tt><p").isEmpty()
+                && com.xfive.live.lyrics.TtmlParser.toLrc(null).isEmpty()
+                && com.xfive.live.lyrics.TtmlParser.toLrc("<!DOCTYPE tt [<!ENTITY x \"y\">]><tt><body><p begin=\"1s\">&x;</p></body></tt>").isEmpty());
+
+        // server palsu: lrclib kosong, Better Lyrics punya lagunya (200 JSON), satu lagi 401
+        com.sun.net.httpserver.HttpServer srv = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        java.util.List<String> reqs = new java.util.concurrent.CopyOnWriteArrayList<>();
+        srv.createContext("/api/", ex -> {
+            reqs.add("LRCLIB " + ex.getRequestURI());
+            byte[] b = "[]".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            ex.sendResponseHeaders(200, b.length);
+            ex.getResponseBody().write(b);
+            ex.close();
+        });
+        srv.createContext("/getLyrics", ex -> {
+            reqs.add("BL " + ex.getRequestURI());
+            String q = ex.getRequestURI().getRawQuery();
+            if (q.contains("s=Unknown")) {
+                ex.sendResponseHeaders(401, -1);
+            } else {
+                String ttml = ttmlSample(40, 5).replace("\\", "\\\\").replace("\"", "\\\"");
+                byte[] b = ("{\"ttml\":\"" + ttml + "\"}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                ex.getResponseHeaders().add("Content-Type", "application/json");
+                ex.sendResponseHeaders(200, b.length);
+                ex.getResponseBody().write(b);
+            }
+            ex.close();
+        });
+        srv.start();
+        String host = "http://127.0.0.1:" + srv.getAddress().getPort();
+        String oldL = com.xfive.live.lyrics.LrclibFetcher.base;
+        String oldB = com.xfive.live.lyrics.BetterLyricsFetcher.base;
+        com.xfive.live.lyrics.LrclibFetcher.base = host + "/api/";
+        com.xfive.live.lyrics.BetterLyricsFetcher.base = host;
+        try {
+            check("better: alamat memuat judul, artis, durasi", com.xfive.live.lyrics.BetterLyricsFetcher.url("Adele", "Hello World", 200_400L)
+                    .equals(host + "/getLyrics?s=Hello+World&a=Adele&d=200"));
+            var ok = com.xfive.live.lyrics.BetterLyricsFetcher.fetch("Adele", "Hello", 200_000L);
+            check("better: 200 JSON -> LRC yang cocok panjang lagunya", ok.text() != null && ok.text().startsWith("[00:00.50]Hello world 0"));
+            var tooShort = com.xfive.live.lyrics.BetterLyricsFetcher.fetch("Adele", "Hello", 900_000L);
+            check("better: lirik tidak cocok panjang lagu -> ditolak dengan alasan", tooShort.text() == null && tooShort.reason().contains("do not fit"));
+            var no = com.xfive.live.lyrics.BetterLyricsFetcher.fetch("X", "Unknown", 200_000L);
+            check("better: 401 -> tidak ada, alasan jelas", no.text() == null && no.reason().contains("cached"));
+            reqs.clear();
+            var found = com.xfive.live.lyrics.LyricsFinder.find("Adele", "Hello", 200_000L, true);
+            check("finder: lrclib kosong -> Better Lyrics dipakai", found.text() != null && reqs.stream().anyMatch(r -> r.startsWith("BL ")));
+            reqs.clear();
+            var off = com.xfive.live.lyrics.LyricsFinder.find("Adele", "Hello", 200_000L, false);
+            check("finder: Better Lyrics dimatikan -> tidak dipanggil", off.text() == null && reqs.stream().noneMatch(r -> r.startsWith("BL ")));
+            var none = com.xfive.live.lyrics.LyricsFinder.find("X", "Unknown", 200_000L, true);
+            check("finder: kedua sumber gagal -> alasan gabungan", none.text() == null && none.reason().contains("lrclib") && none.reason().contains("Better Lyrics"));
+            check("finder: tanpa durasi tidak mencari", com.xfive.live.lyrics.LyricsFinder.find("Adele", "Hello", 0L, true).text() == null);
+        } finally {
+            com.xfive.live.lyrics.LrclibFetcher.base = oldL;
+            com.xfive.live.lyrics.BetterLyricsFetcher.base = oldB;
+            srv.stop(0);
         }
     }
 
