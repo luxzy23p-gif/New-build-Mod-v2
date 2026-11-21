@@ -93,6 +93,49 @@ public final class LrclibFetcher {
         return new Result(null, LyricsPicker.reason(seen, clean(title), artist, durationMs));
     }
 
+    /** Hasil pencarian pilihan: daftar mentah (kandidat) dan alasan jika kosong. */
+    public record Candidates(java.util.List<LyricsPicker.Candidate> list, String reason) {
+    }
+
+    /**
+     * Semua kandidat lrclib untuk lagu ini (tanpa syarat durasi), untuk dipilih sendiri oleh pemain.
+     * Tiga pencarian digabung: judul+artis, artis+judul bebas, dan judul saja.
+     */
+    public static Candidates candidates(String artist, String title) {
+        if (title == null || title.isBlank()) {
+            return new Candidates(java.util.List.of(), "Song title unknown.");
+        }
+        boolean hasArtist = artist != null && !artist.isBlank() && !artist.strip().equalsIgnoreCase("unknown artist");
+        String clean = cleanTitle(title);
+        String[] urls = {
+                base + "search?track_name=" + enc(clean) + (hasArtist ? "&artist_name=" + enc(artist) : ""),
+                base + "search?q=" + enc((hasArtist ? artist + " " : "") + clean),
+                base + "search?q=" + enc(clean)};
+        java.util.List<LyricsPicker.Candidate> all = new java.util.ArrayList<>();
+        boolean reached = false;
+        try {
+            for (int i = 0; i < urls.length; i++) {
+                String body = get(urls[i]);
+                reached |= body != null;
+                all.addAll(LyricsPicker.parse(body));
+                if (i + 1 < urls.length) {
+                    pause();
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            if (all.isEmpty()) {
+                return new Candidates(java.util.List.of(), "Could not reach the lyrics service (check your internet).");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return new Candidates(java.util.List.of(), "");
+        }
+        if (all.isEmpty() && !reached) {
+            return new Candidates(java.util.List.of(), "Could not reach the lyrics service (check your internet).");
+        }
+        return new Candidates(all, "");
+    }
+
     private static String clean(String title) {
         return cleanTitle(title);
     }

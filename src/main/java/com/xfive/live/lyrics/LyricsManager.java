@@ -10,8 +10,16 @@ import java.util.List;
 public final class LyricsManager {
     private List<LyricLine> lines = List.of();
 
+    private boolean manual;
+
     public void load(String lrcText) {
         lines = LrcParser.parse(lrcText);
+        manual = LyricsChoices.isMarked(lrcText);
+    }
+
+    /** true jika lirik ini dipilih sendiri oleh pemain (tidak boleh dibuang oleh pemeriksaan otomatis). */
+    public boolean isManual() {
+        return manual && !lines.isEmpty();
     }
 
     /** Membaca file .lrc sekali. Mengembalikan false jika file tidak ada atau tidak terbaca. */
@@ -31,6 +39,7 @@ public final class LyricsManager {
 
     public void clear() {
         lines = List.of();
+        manual = false;
     }
 
     public List<LyricLine> lines() {

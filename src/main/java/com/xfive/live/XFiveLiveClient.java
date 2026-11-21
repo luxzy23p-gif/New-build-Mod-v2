@@ -371,6 +371,7 @@ public final class XFiveLiveClient implements ClientModInitializer {
             lastTrack = track;
             lyricsGeneration++;
             lrcCheckPending = false;
+            clearLyricChoices();
             if (track == null) {
                 LYRICS.clear();
                 lyricsNote = "";
@@ -380,8 +381,9 @@ public final class XFiveLiveClient implements ClientModInitializer {
             } else {
                 Path lrc = findLrc(track);
                 if (lrc != null && LYRICS.loadFile(lrc)) {
-                    lrcCheckPending = true;
-                    lyricsNote = "Lyrics from file";
+                    boolean mine = LYRICS.isManual();
+                    lrcCheckPending = !mine;
+                    lyricsNote = mine ? "Lyrics chosen by you" : "Lyrics from file";
                 } else {
                     LYRICS.clear();
                     if (CONFIG.autoLyrics) {
@@ -480,6 +482,121 @@ public final class XFiveLiveClient implements ClientModInitializer {
         });
     }
 
+    // ---- pilih lirik sendiri dari daftar lrclib ----
+
+    /** Pilihan lirik untuk lagu yang sedang diputar (diisi di thread latar, dibaca oleh layar pengaturan). */
+    private static volatile java.util.List<com.xfive.live.lyrics.LyricsChoices.Option> lyricChoices = java.util.List.of();
+    private static volatile String lyricChoiceNote = "";
+    private static volatile boolean lyricChoiceBusy;
+    private static volatile int lyricChoiceVersion;
+    private static final java.util.concurrent.ExecutorService CHOICE_POOL =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "xfive-lyric-choices");
+                t.setDaemon(true);
+                return t;
+            });
+
+    public static java.util.List<com.xfive.live.lyrics.LyricsChoices.Option> lyricChoices() {
+        return lyricChoices;
+    }
+
+    public static String lyricChoiceNote() {
+        return lyricChoiceNote;
+    }
+
+    public static boolean lyricChoiceBusy() {
+        return lyricChoiceBusy;
+    }
+
+    /** Naik setiap kali daftar pilihan berubah, supaya layar membangun ulang barisnya. */
+    public static int lyricChoiceVersion() {
+        return lyricChoiceVersion;
+    }
+
+    private static void clearLyricChoices() {
+        lyricChoices = java.util.List.of();
+        lyricChoiceNote = "";
+        lyricChoiceBusy = false;
+        lyricChoiceVersion++;
+    }
+
+    /** Cari daftar lirik lrclib untuk lagu ini (lagu offline maupun online) supaya bisa dipilih sendiri. */
+    public static void findLyricChoices() {
+        PlaylistManager.Track track = MUSIC.currentTrack();
+        if (track == null) {
+            lyricChoiceNote = "Play a song first.";
+            lyricChoiceVersion++;
+            return;
+        }
+        if (lyricChoiceBusy) {
+            return;
+        }
+        final int generation = lyricsGeneration;
+        final long dur = MUSIC.durationMs();
+        lyricChoiceBusy = true;
+        lyricChoiceNote = "Searching lrclib...";
+        lyricChoices = java.util.List.of();
+        lyricChoiceVersion++;
+        CHOICE_POOL.execute(() -> {
+            com.xfive.live.lyrics.LrclibFetcher.Candidates got =
+                    com.xfive.live.lyrics.LrclibFetcher.candidates(track.artist(), track.title());
+            if (generation != lyricsGeneration) {
+                return; // lagu sudah berganti, hasil ini tidak relevan lagi
+            }
+            java.util.List<com.xfive.live.lyrics.LyricsChoices.Option> opts =
+                    com.xfive.live.lyrics.LyricsChoices.rank(got.list(), track.title(), track.artist(), dur);
+            lyricChoices = opts;
+            lyricChoiceNote = opts.isEmpty()
+                    ? (got.reason().isEmpty() ? "No synced lyrics on lrclib for this song." : got.reason())
+                    : "Tap one to use it. Closest length first. Use Lyrics sync to fix small delays.";
+            lyricChoiceBusy = false;
+            lyricChoiceVersion++;
+        });
+    }
+
+    /** Pakai pilihan ini untuk lagu yang sedang diputar dan simpan supaya diingat di lain waktu. */
+    public static void applyLyricChoice(com.xfive.live.lyrics.LyricsChoices.Option option) {
+        PlaylistManager.Track track = MUSIC.currentTrack();
+        if (track == null || option == null || option.synced() == null) {
+            return;
+        }
+        String text = com.xfive.live.lyrics.LyricsChoices.mark(option.synced());
+        lyricsGeneration++; // batalkan pencarian otomatis yang masih jalan
+        pendingLyrics = null;
+        lrcCheckPending = false;
+        LYRICS.load(text);
+        lyricsNote = "Lyrics chosen by you";
+        MUSIC.setStatus("Lirik dipilih.");
+        try {
+            Path file = manualLrc(track);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, text, StandardCharsets.UTF_8);
+        } catch (IOException | RuntimeException ignored) {
+            // gagal menyimpan, lirik tetap dipakai untuk lagu ini
+        }
+    }
+
+    /** Hapus pilihan sendiri untuk lagu ini lalu cari lagi secara otomatis. */
+    public static void resetLyricChoice() {
+        PlaylistManager.Track track = MUSIC.currentTrack();
+        if (track == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(manualLrc(track));
+        } catch (IOException | RuntimeException ignored) {
+            // tidak bisa dihapus, abaikan
+        }
+        LYRICS.clear();
+        lastTrack = null; // memaksa syncLyrics() memasang ulang lirik lagu ini
+    }
+
+    /** File lirik pilihan sendiri untuk lagu ini (tidak menimpa file .lrc buatan sendiri). */
+    static Path manualLrc(PlaylistManager.Track track) {
+        return FabricLoader.getInstance().getGameDir().resolve(LYRICS_FOLDER)
+                .resolve(stemOf(track.path()) + ".manual.lrc");
+    }
+
     /** Folder lirik buatan sendiri: taruh file .lrc di sini dengan nama sama seperti lagu. */
     static final String LYRICS_FOLDER = "xfive-lirik";
     private static final String LYRICS_README = String.join("\n",
@@ -506,6 +623,10 @@ public final class XFiveLiveClient implements ClientModInitializer {
 
     /** Mencari .lrc: di samping file lagu dulu, lalu di folder xfive-lirik. Null jika tidak ada. */
     static Path findLrc(PlaylistManager.Track track) {
+        Path chosen = manualLrc(track);
+        if (chosen != null && Files.isRegularFile(chosen)) {
+            return chosen;
+        }
         Path beside = lrcFor(track.path());
         if (Files.isRegularFile(beside)) {
             return beside;

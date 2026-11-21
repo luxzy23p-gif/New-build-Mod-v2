@@ -163,6 +163,18 @@ Penjelasan lama, kalau tidak ada cover juga:
 
 Lagu hits dari Charts umumnya tidak ada versi penuh gratisnya, jadi mod memutar **cuplikan 30 detik** dari Apple. Untuk memutar **lagu penuh**, sambungkan Spotify (Settings > Sources, butuh Spotify Premium dan aplikasi Spotify terbuka). Setelah tersambung, mod mencari lagu itu di Spotify dan memutarnya penuh di aplikasi Spotify; tombol, waktu, dan lirik tetap ikut. Kalau akunmu **Free** (Spotify menolak perintah dari aplikasi lain), lagu dibuka otomatis di aplikasi Spotify lewat tautan: tekan **play** di sana, lalu mod tetap mengikuti lagunya (tombol, waktu, lirik). Membaca status lagu boleh untuk akun Free; hanya perintah putar/jeda yang butuh Premium. Kalau tetap gagal, alasannya tampil di pesan Now Playing.
 
+## Lirik tidak keluar? Pilih sendiri dari LRCLIB
+
+LRCLIB (lrclib.net) sudah jadi sumber lirik pertama yang dicari otomatis. Kalau lirik tetap tidak keluar:
+
+1. Putar lagunya (lagu dari HP atau lagu online sama saja).
+2. Buka Control Center, Settings, tab HUD, bagian **Lyrics not showing?**.
+3. Tekan **Choose lyrics for this song**. Mod mencari semua lirik bersinkron untuk lagu itu di LRCLIB.
+4. Tekan salah satu pilihan. Yang durasinya paling dekat dengan lagumu ada di atas. Angka seperti `(+3 s)` artinya versi lirik itu 3 detik lebih panjang dari lagumu.
+5. Kalau liriknya sedikit terlambat atau terlalu cepat, geser **Lyrics sync**.
+
+Pilihanmu disimpan di folder `xfive-lirik` (file `.manual.lrc`), jadi lagu itu ingat liriknya di lain waktu dan tidak dibuang oleh pemeriksaan otomatis. Tidak menimpa file `.lrc` buatanmu sendiri. Tekan **Back to automatic lyrics** untuk menghapus pilihanmu dan kembali ke pencarian otomatis.
+
 ## Lirik melayang di dalam game
 
 Saat lagu diputar, lirik bersinkron muncul **melayang di layar** (kapsul kaca gelap di belakang teks supaya mudah dibaca).

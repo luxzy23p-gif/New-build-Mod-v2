@@ -48,6 +48,7 @@ public final class XFiveTests {
         testPillMath();
         testDonations();
         testBetterLyrics();
+        testLyricChoices();
         Files.createDirectories(work.resolve("spotify"));
         new SpotifyTests(XFiveTests::check).run(work.resolve("spotify"));
         System.out.println("passed=" + passed + " failed=" + failed);
@@ -65,6 +66,82 @@ public final class XFiveTests {
                     + "<span ttm:role=\"x-translation\">terjemahan</span></p>", t / 60, t % 60, t / 60, (t % 60), t / 60, t % 60, i));
         }
         return sb.append("</div></body></tt>").toString();
+    }
+
+    static void testLyricChoices() throws Exception {
+        String lrc = "[00:01.00]a\n[00:05.00]b\n[00:09.00]c\n[00:13.00]d\n";
+        java.util.List<com.xfive.live.lyrics.LyricsPicker.Candidate> in = java.util.List.of(
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Other Song", "X", 200, false, lrc),
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Hello", "Adele", 300, false, lrc),
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Hello", "Adele", 296, false, lrc + "[00:17.00]e\n"),
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Hello", "Adele", 296, false, lrc + "[00:17.00]e\n"),
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Hello", "Adele", 297, true, lrc),
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Hello", "Adele", 297, false, null),
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Hello", "Adele", 297, false, "[00:01.00]a\n"),
+                new com.xfive.live.lyrics.LyricsPicker.Candidate("Hello (Live)", "Adele", 298, false, "[00:01.00]a\n[00:02.00]b\n[00:03.00]c\n"));
+        java.util.List<com.xfive.live.lyrics.LyricsChoices.Option> r =
+                com.xfive.live.lyrics.LyricsChoices.rank(in, "Hello", "Adele", 295_000L);
+        check("choices: buang instrumental, tanpa sinkron, <3 baris, duplikat", r.size() == 4);
+        check("choices: urut selisih durasi terkecil",
+                r.get(0).durationSec() == 296 && r.get(1).durationSec() == 298 && r.get(2).durationSec() == 300);
+        check("choices: judul cocok di depan, judul lain di belakang", r.get(0).titleMatch() && !r.get(3).titleMatch());
+        check("choices: label berisi judul, artis, waktu, selisih", r.get(2).label().equals("Hello - Adele  5:00 (+5 s)"));
+        check("choices: selisih kecil tidak ditulis", r.get(0).label().equals("Hello - Adele  4:56 (+1 s)"));
+        check("choices: durasi lagu tidak diketahui -> tanpa selisih",
+                com.xfive.live.lyrics.LyricsChoices.rank(in, "Hello", "Adele", 0L).get(0).label().indexOf('(') < 0);
+        check("choices: daftar kosong / null aman", com.xfive.live.lyrics.LyricsChoices.rank(null, "a", "b", 1000L).isEmpty()
+                && com.xfive.live.lyrics.LyricsChoices.rank(java.util.List.of(), "a", "b", 1000L).isEmpty());
+        java.util.List<com.xfive.live.lyrics.LyricsPicker.Candidate> many = new java.util.ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            many.add(new com.xfive.live.lyrics.LyricsPicker.Candidate("T", "A" + i, 200 + i, false, lrc));
+        }
+        check("choices: paling banyak " + com.xfive.live.lyrics.LyricsChoices.MAX,
+                com.xfive.live.lyrics.LyricsChoices.rank(many, "T", "A", 200_000L).size() == com.xfive.live.lyrics.LyricsChoices.MAX);
+        String marked = com.xfive.live.lyrics.LyricsChoices.mark(lrc);
+        check("choices: penanda manual tidak mengganggu parser", com.xfive.live.lyrics.LrcParser.parse(marked).size() == 4
+                && com.xfive.live.lyrics.LyricsChoices.isMarked(marked) && com.xfive.live.lyrics.LyricsChoices.mark(marked).equals(marked)
+                && !com.xfive.live.lyrics.LyricsChoices.isMarked(lrc));
+        com.xfive.live.lyrics.LyricsManager lm = new com.xfive.live.lyrics.LyricsManager();
+        lm.load(marked);
+        check("choices: LyricsManager mengenali lirik pilihan sendiri", lm.isManual() && lm.lines().size() == 4);
+        lm.load(lrc);
+        check("choices: lirik biasa bukan manual", !lm.isManual());
+        lm.load(marked);
+        lm.clear();
+        check("choices: clear menghapus tanda manual", !lm.isManual());
+
+        // server palsu lrclib
+        com.sun.net.httpserver.HttpServer srv = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        java.util.List<String> reqs = new java.util.concurrent.CopyOnWriteArrayList<>();
+        srv.createContext("/api/", ex -> {
+            reqs.add(ex.getRequestURI().toString());
+            String body = "[{\"trackName\":\"Hello\",\"artistName\":\"Adele\",\"duration\":296,\"instrumental\":false,\"syncedLyrics\":\"" + lrc.replace("\n", "\\n") + "\"}]";
+            byte[] b = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            ex.sendResponseHeaders(200, b.length);
+            ex.getResponseBody().write(b);
+            ex.close();
+        });
+        srv.start();
+        String old = com.xfive.live.lyrics.LrclibFetcher.base;
+        try {
+            com.xfive.live.lyrics.LrclibFetcher.base = "http://127.0.0.1:" + srv.getAddress().getPort() + "/api/";
+            com.xfive.live.lyrics.LrclibFetcher.Candidates got = com.xfive.live.lyrics.LrclibFetcher.candidates("Adele", "01. Hello (Official Video)");
+            check("candidates: tiga pencarian digabung", reqs.size() == 3 && got.list().size() == 3 && got.reason().isEmpty());
+            check("candidates: pencarian memakai judul bersih dan artis", reqs.get(0).contains("track_name=Hello") && reqs.get(0).contains("artist_name=Adele"));
+            check("candidates: setelah rank, duplikat jadi satu pilihan",
+                    com.xfive.live.lyrics.LyricsChoices.rank(got.list(), "Hello", "Adele", 296_000L).size() == 1);
+            check("candidates: judul kosong ditolak", com.xfive.live.lyrics.LrclibFetcher.candidates("A", " ").list().isEmpty());
+        } finally {
+            com.xfive.live.lyrics.LrclibFetcher.base = old;
+            srv.stop(0);
+        }
+        com.xfive.live.lyrics.LrclibFetcher.base = "http://127.0.0.1:1/api/";
+        try {
+            com.xfive.live.lyrics.LrclibFetcher.Candidates down = com.xfive.live.lyrics.LrclibFetcher.candidates("A", "B");
+            check("candidates: server mati -> alasan jelas", down.list().isEmpty() && down.reason().contains("internet"));
+        } finally {
+            com.xfive.live.lyrics.LrclibFetcher.base = old;
+        }
     }
 
     static void testBetterLyrics() throws Exception {

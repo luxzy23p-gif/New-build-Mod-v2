@@ -123,6 +123,7 @@ public final class ControlCenterScreen extends Screen {
     private List<Item> items = new ArrayList<>();
     private long itemsSig = Long.MIN_VALUE;
     private int spotifyVersion = -1;
+    private int lyricChoiceVersion = -1;
     private String spotifyNote = "";
     private String curKey = "";
     private String curKey2 = "";
@@ -660,6 +661,11 @@ public final class ControlCenterScreen extends Screen {
                     int spv = XFiveLiveClient.SPOTIFY.version();
                     if (tab == Tab.SOURCES && spv != spotifyVersion) {
                         spotifyVersion = spv;
+                        buildRows();
+                    }
+                    int lcv = XFiveLiveClient.lyricChoiceVersion();
+                    if (tab == Tab.HUD && lcv != lyricChoiceVersion) {
+                        lyricChoiceVersion = lcv;
                         buildRows();
                     }
                     drawRows(g, font, accent, mouseX, mouseY, clip);
@@ -1680,8 +1686,9 @@ public final class ControlCenterScreen extends Screen {
         boolean pressed = pressedRow == r && !dragged;
         if (r.kind == Row.ACTION) {
             Glass.roundRect(g, ax, ay, r.w, r.h, r.h / 2, a(accent, pressed ? 0.60f : (hov ? 0.50f : 0.36f)));
-            int w = GlassPanelRenderer.width(font, r.label);
-            GlassPanelRenderer.text(g, font, r.label, ax + (r.w - w) / 2, ay + (r.h - 9) / 2, 0xFFFFFF);
+            String lab = GlassPanelRenderer.fit(font, r.label, r.w - 12);
+            int w = GlassPanelRenderer.width(font, lab);
+            GlassPanelRenderer.text(g, font, lab, ax + (r.w - w) / 2, ay + (r.h - 9) / 2, 0xFFFFFF);
             return;
         }
         Glass.roundRect(g, ax, ay, r.w, r.h, 9, a(0xFFFFFF, pressed ? 0.15f : (hov ? 0.12f : 0.08f)));
@@ -2230,6 +2237,17 @@ public final class ControlCenterScreen extends Screen {
                     out.add(slider("Lyrics sync", () -> (c.lyricsOffsetMs + 3000) / 6000.0,
                             v -> c.lyricsOffsetMs = (int) (Math.round((v * 6000.0 - 3000.0) / 50.0) * 50),
                             () -> (c.lyricsOffsetMs > 0 ? "+" : "") + c.lyricsOffsetMs + " ms"));
+                    out.add(heading("Lyrics not showing?"));
+                    out.add(action(XFiveLiveClient.lyricChoiceBusy() ? "Searching lrclib..." : "Choose lyrics for this song",
+                            XFiveLiveClient::findLyricChoices));
+                    for (var opt : XFiveLiveClient.lyricChoices()) {
+                        out.add(action(opt.label(), () -> XFiveLiveClient.applyLyricChoice(opt)));
+                    }
+                    if (!XFiveLiveClient.lyricChoiceNote().isEmpty()) {
+                        out.add(note(XFiveLiveClient.lyricChoiceNote()));
+                    }
+                    out.add(action("Back to automatic lyrics", XFiveLiveClient::resetLyricChoice));
+                    out.add(note("Works for your files and online songs. Source: lrclib.net"));
                     out.add(heading("Size and position"));
                     out.add(slider("HUD opacity", () -> (c.hudOpacity - 0.1) / 0.9,
                             v -> c.hudOpacity = (float) (0.1 + v * 0.9),
