@@ -9,7 +9,13 @@ import java.util.Locale;
  * Alert tampil satu per satu; antar alert ada jeda singkat supaya animasi keluar dan masuk tidak bertabrakan.
  */
 public final class DonationAlerts {
-    public record Alert(String name, long amount, String message) {
+    /** Jenis alert: donasi biasa, Media Share (video), atau Song Share (permintaan lagu). */
+    public enum Kind { DONATE, MEDIA, SONG }
+
+    public record Alert(Kind kind, String name, long amount, String message) {
+        public Alert(String name, long amount, String message) {
+            this(Kind.DONATE, name, amount, message);
+        }
     }
 
     public static final int MAX_QUEUE = 10;
@@ -24,11 +30,16 @@ public final class DonationAlerts {
 
     /** Menambah alert. false jika antrean penuh. Teks dibersihkan dari karakter kontrol dan dipotong. */
     public synchronized boolean push(String name, long amount, String message) {
+        return push(Kind.DONATE, name, amount, message);
+    }
+
+    public synchronized boolean push(Kind kind, String name, long amount, String message) {
         if (queue.size() >= MAX_QUEUE) {
             return false;
         }
         String n = clean(name, NAME_MAX);
-        queue.add(new Alert(n.isEmpty() ? "Someone" : n, Math.max(0L, amount), clean(message, MESSAGE_MAX)));
+        queue.add(new Alert(kind == null ? Kind.DONATE : kind, n.isEmpty() ? "Someone" : n, Math.max(0L, amount),
+                clean(message, MESSAGE_MAX)));
         return true;
     }
 

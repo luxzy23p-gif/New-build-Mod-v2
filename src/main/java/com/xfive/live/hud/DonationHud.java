@@ -47,19 +47,25 @@ public final class DonationHud {
         Glass.roundRect(g, x, y, w, H, 10, Glass.argb(0x0B0D14, 0.92f * vis));
         Glass.border(g, x, y, w, H, 10, Glass.argb(GOLD, 0.85f * vis), Glass.argb(GOLD, 0.35f * vis));
 
-        // koin emas bertuliskan Rp
+        // koin emas: "Rp" untuk donasi, "Vid" untuk Media Share, "Mu" untuk Song Share
+        DonationAlerts.Kind kind = a.kind();
+        String badge = kind == DonationAlerts.Kind.MEDIA ? "Vid" : kind == DonationAlerts.Kind.SONG ? "Mu" : "Rp";
         int cx = x + 17;
         int cy = y + H / 2;
         Glass.disc(g, cx, cy, 10, Glass.argb(GOLD, 0.95f * vis));
-        GlassPanelRenderer.textAlpha(g, font, "Rp", cx - GlassPanelRenderer.width(font, "Rp") / 2, cy - 4, 0x3A2A00, vis);
+        GlassPanelRenderer.textAlpha(g, font, badge, cx - GlassPanelRenderer.width(font, badge) / 2, cy - 4, 0x3A2A00, vis);
 
         int tx = x + 34;
-        String amount = DonationAlerts.formatRupiah(a.amount());
-        int amountW = GlassPanelRenderer.width(font, amount);
+        String amount = a.amount() > 0L || kind == DonationAlerts.Kind.DONATE ? DonationAlerts.formatRupiah(a.amount()) : "";
+        int amountW = amount.isEmpty() ? 0 : GlassPanelRenderer.width(font, amount);
         int nameMax = Math.max(30, w - 34 - 10 - amountW - 8);
         GlassPanelRenderer.textAlpha(g, font, GlassPanelRenderer.fit(font, a.name(), nameMax), tx, y + 7, 0xFFFFFF, vis);
-        GlassPanelRenderer.textAlpha(g, font, amount, x + w - 10 - amountW, y + 7, GOLD, vis);
-        String msg = a.message().isEmpty() ? "sent a donation" : a.message();
+        if (!amount.isEmpty()) {
+            GlassPanelRenderer.textAlpha(g, font, amount, x + w - 10 - amountW, y + 7, GOLD, vis);
+        }
+        String fallback = kind == DonationAlerts.Kind.MEDIA ? "shared a video"
+                : kind == DonationAlerts.Kind.SONG ? "requested a song" : "sent a donation";
+        String msg = a.message().isEmpty() ? fallback : a.message();
         GlassPanelRenderer.textAlpha(g, font, GlassPanelRenderer.fit(font, msg, w - 34 - 10), tx, y + 19, 0xB4BAC8, vis);
     }
 

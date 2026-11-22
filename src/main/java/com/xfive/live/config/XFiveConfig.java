@@ -49,6 +49,10 @@ public final class XFiveConfig {
     public boolean betterLyrics = true;
     /** Cari juga di NetEase dan Kugou kalau LRCLIB tidak punya lagunya. */
     public boolean moreLyricSources = true;
+    /** Link overlay SociaBuzz yang ditempel pemain (kosong = belum diisi). */
+    public String overlayAlert = "";
+    public String overlayMedia = "";
+    public String overlaySong = "";
     /** Hits yang tidak ada versi penuh resminya diputar dari versi cover (Audius) agar tidak cuma 30 detik. */
     public boolean coverFallback = true;
     public int lyricsFontSize = 10;
@@ -154,6 +158,9 @@ public final class XFiveConfig {
         autoLyrics = bool(p, "lyrics.auto", autoLyrics);
         betterLyrics = bool(p, "lyrics.betterlyrics", betterLyrics);
         moreLyricSources = bool(p, "lyrics.more", moreLyricSources);
+        overlayAlert = clean(com.xfive.live.donate.OverlayLink.normalize(p.getProperty("donation.link.alert", "")));
+        overlayMedia = clean(com.xfive.live.donate.OverlayLink.normalize(p.getProperty("donation.link.media", "")));
+        overlaySong = clean(com.xfive.live.donate.OverlayLink.normalize(p.getProperty("donation.link.song", "")));
         coverFallback = bool(p, "online.cover", coverFallback);
         lyricsFontSize = integer(p, "lyrics.fontSize", lyricsFontSize, 6, 20);
         highlightColor = integer(p, "lyrics.highlightColor", highlightColor, 0, 0xFFFFFF);
@@ -221,6 +228,9 @@ public final class XFiveConfig {
         put(p, "lyrics.auto", autoLyrics);
         put(p, "lyrics.betterlyrics", betterLyrics);
         put(p, "lyrics.more", moreLyricSources);
+        put(p, "donation.link.alert", overlayAlert);
+        put(p, "donation.link.media", overlayMedia);
+        put(p, "donation.link.song", overlaySong);
         put(p, "online.cover", coverFallback);
         put(p, "lyrics.fontSize", lyricsFontSize);
         put(p, "lyrics.highlightColor", highlightColor);
@@ -259,6 +269,10 @@ public final class XFiveConfig {
         } catch (IOException ignored) {
             // gagal menyimpan tidak boleh membuat game crash
         }
+    }
+
+    private static String clean(String v) {
+        return v == null ? "" : v;
     }
 
     private static void put(Properties p, String key, Object value) {

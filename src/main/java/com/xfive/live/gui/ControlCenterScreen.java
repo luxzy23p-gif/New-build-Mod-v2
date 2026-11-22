@@ -2221,7 +2221,18 @@ public final class ControlCenterScreen extends Screen {
                             () -> c.donationSeconds = c.donationSeconds >= 10 ? 4 : c.donationSeconds + 2));
                     out.add(action("Test donation alert", () -> XFiveLiveClient.DONATIONS.push("Budi Santoso", 25_000L,
                             "Semangat terus streamnya!")));
-                    out.add(note("Alerts from SociaBuzz are not connected yet. This shows how they will look."));
+                    out.add(action("Test media share", () -> XFiveLiveClient.DONATIONS.push(
+                            com.xfive.live.donate.DonationAlerts.Kind.MEDIA, "Budi Santoso", 10_000L, "Lagu Sheila On 7 - Dan")));
+                    out.add(action("Test song share", () -> XFiveLiveClient.DONATIONS.push(
+                            com.xfive.live.donate.DonationAlerts.Kind.SONG, "Siti Aminah", 5_000L, "Hindia - Everything U Are")));
+                    out.add(heading("SociaBuzz links"));
+                    addOverlayRows(out, "Alert", () -> c.overlayAlert, v -> c.overlayAlert = v);
+                    addOverlayRows(out, "Media share", () -> c.overlayMedia, v -> c.overlayMedia = v);
+                    addOverlayRows(out, "Song share", () -> c.overlaySong, v -> c.overlaySong = v);
+                    out.add(note(overlayNote.isEmpty()
+                            ? "Copy the overlay link in SociaBuzz, then press Paste."
+                            : overlayNote));
+                    out.add(note("Links are saved. Live alerts from SociaBuzz are NOT connected yet."));
                     out.add(heading("Lyrics"));
                     out.add(toggle("Also search Better Lyrics", () -> c.betterLyrics, () -> c.betterLyrics = !c.betterLyrics));
                     out.add(toggle("Also search NetEase + Kugou", () -> c.moreLyricSources,
@@ -2317,6 +2328,31 @@ public final class ControlCenterScreen extends Screen {
         }
         rows = out;
         layoutRows();
+    }
+
+    private String overlayNote = "";
+
+    /** Tiga baris per tautan: status (link disamarkan), tombol Paste dari clipboard, tombol Clear. */
+    private void addOverlayRows(List<Row> out, String label, java.util.function.Supplier<String> get,
+                                java.util.function.Consumer<String> set) {
+        out.add(note(label + ": " + com.xfive.live.donate.OverlayLink.mask(get.get())));
+        out.add(action("Paste " + label.toLowerCase(Locale.ROOT) + " link", () -> {
+            String link = com.xfive.live.donate.OverlayLink.normalize(clipboardGet());
+            if (link == null) {
+                overlayNote = "That is not a SociaBuzz link (it must start with https://sociabuzz.com/).";
+            } else {
+                set.accept(link);
+                overlayNote = label + " link saved.";
+            }
+            buildRows();
+        }));
+        if (!get.get().isEmpty()) {
+            out.add(action("Clear " + label.toLowerCase(Locale.ROOT) + " link", () -> {
+                set.accept("");
+                overlayNote = label + " link removed.";
+                buildRows();
+            }));
+        }
     }
 
     private static String clipboardGet() {

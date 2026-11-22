@@ -50,6 +50,7 @@ public final class XFiveTests {
         testBetterLyrics();
         testLyricChoices();
         testMoreSources();
+        testOverlayLinks();
         Files.createDirectories(work.resolve("spotify"));
         new SpotifyTests(XFiveTests::check).run(work.resolve("spotify"));
         System.out.println("passed=" + passed + " failed=" + failed);
@@ -86,6 +87,31 @@ public final class XFiveTests {
             ex.getResponseBody().write(b);
         }
         ex.close();
+    }
+
+    static void testOverlayLinks() {
+        String ok = "https://sociabuzz.com/pro/tribe/alert1/v3/abcd1234efgh?colorName=red";
+        check("overlay: link SociaBuzz sah", ok.equals(com.xfive.live.donate.OverlayLink.normalize("  " + ok + "\n")));
+        check("overlay: tanpa https ditambah", com.xfive.live.donate.OverlayLink.normalize("sociabuzz.com/pro/tribe/alert1/v3/x1") != null);
+        check("overlay: subdomain boleh, situs lain ditolak",
+                com.xfive.live.donate.OverlayLink.normalize("https://www.sociabuzz.com/a/b") != null
+                && com.xfive.live.donate.OverlayLink.normalize("https://evil.com/sociabuzz.com/a") == null
+                && com.xfive.live.donate.OverlayLink.normalize("https://sociabuzz.com.evil.com/a") == null
+                && com.xfive.live.donate.OverlayLink.normalize("http://sociabuzz.com/a/b") == null);
+        check("overlay: kosong, null, tanpa path, terlalu panjang ditolak",
+                com.xfive.live.donate.OverlayLink.normalize("") == null && com.xfive.live.donate.OverlayLink.normalize(null) == null
+                && com.xfive.live.donate.OverlayLink.normalize("https://sociabuzz.com") == null
+                && com.xfive.live.donate.OverlayLink.normalize("https://sociabuzz.com/" + "a".repeat(700)) == null);
+        String m = com.xfive.live.donate.OverlayLink.mask(ok);
+        check("overlay: tampilan menyembunyikan id", m.equals("sociabuzz.com/.../****efgh") && !m.contains("abcd1234"));
+        check("overlay: kosong -> Not set", com.xfive.live.donate.OverlayLink.mask("").equals("Not set"));
+        var q = new com.xfive.live.donate.DonationAlerts();
+        q.push(com.xfive.live.donate.DonationAlerts.Kind.MEDIA, "A", 0, "video");
+        q.push("B", 5, "x");
+        var first = q.tick(1000L, 5000L);
+        check("alert: jenis ikut antrean, push lama = donasi", first.kind() == com.xfive.live.donate.DonationAlerts.Kind.MEDIA
+                && q.tick(1000L + 6000L, 5000L) == null
+                && q.tick(1000L + 7000L, 5000L).kind() == com.xfive.live.donate.DonationAlerts.Kind.DONATE);
     }
 
     static void testMoreSources() throws Exception {

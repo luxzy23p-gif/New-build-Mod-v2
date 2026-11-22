@@ -185,6 +185,14 @@ LRCLIB (lrclib.net) sudah jadi sumber lirik pertama yang dicari otomatis. Kalau 
 
 Pilihanmu disimpan di folder `xfive-lirik` (file `.manual.lrc`), jadi lagu itu ingat liriknya di lain waktu dan tidak dibuang oleh pemeriksaan otomatis. Tidak menimpa file `.lrc` buatanmu sendiri. Tekan **Back to automatic lyrics** untuk menghapus pilihanmu dan kembali ke pencarian otomatis.
 
+## Link overlay SociaBuzz
+
+Di Settings, tab HUD, bagian **SociaBuzz links** ada tiga tempat: **Alert**, **Media share**, dan **Song share**. Salin link overlay dari SociaBuzz (menu Overlay Live Streaming), lalu tekan **Paste ... link**. Link harus berawal `https://sociabuzz.com/`. Di layar link hanya tampil sebagian karena link itu rahasia. Tombol **Clear** menghapusnya.
+
+Tombol **Test donation alert**, **Test media share**, dan **Test song share** menampilkan contoh tampilannya.
+
+PENTING: link tersimpan, tetapi alert langsung dari SociaBuzz BELUM tersambung. SociaBuzz tidak punya API resmi dan cara overlay-nya menerima donasi belum bisa saya pastikan.
+
 ## Lirik melayang di dalam game
 
 Saat lagu diputar, lirik bersinkron muncul **melayang di layar** (kapsul kaca gelap di belakang teks supaya mudah dibaca).
